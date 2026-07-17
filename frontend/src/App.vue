@@ -1,0 +1,1 @@
+<template><h1>FinanceAI</h1></template>
