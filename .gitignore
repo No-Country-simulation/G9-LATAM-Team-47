@@ -1,0 +1,22 @@
+# --- IntelliJ e IDEs ---
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# --- Java y Sistemas de Construcción (Maven/Gradle) ---
+target/
+build/
+.gradle/
+*.jar
+*.war
+
+# --- Sistema Operativo (Linux/Mac) ---
+.DS_Store
+Thumbs.db
+*.log
+
+# --- Infraestructura y Seguridad ---
+.env
+*.local
