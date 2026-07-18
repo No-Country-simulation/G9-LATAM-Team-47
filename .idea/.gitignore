@@ -1,0 +1,49 @@
+# Default ignored files
+/shelf/
+/workspace.xml
+# 🔒 Seguridad y Variables de Entorno Locales (¡Crucial para tus API Keys!)
+.env
+.env.local
+.env.*
+*.env
+/backend/src/main/resources/application-local.properties
+
+# 💻 Módulo Backend (Java / Spring Boot / Maven)
+/backend/target/
+/backend/.mvn/
+/backend/mvnw
+/backend/mvnw.cmd
+/backend/.metadata/
+*.class
+
+# 📊 Módulo Data Science (Python / Jupyter Notebooks)
+/data-science/venv/
+/data-science/.venv/
+/data-science/__pycache__/
+/data-science/*.pyc
+/data-science/.ipynb_checkpoints/
+/data-science/models/*.pkl
+/data-science/models/*.joblib
+
+# 💾 Archivos de datos pesados (Data Science)
+*.csv
+*.xlsx
+!/data-science/datasets/sample.csv
+
+# 🎨 Módulo Frontend (Local / IDEs)
+/frontend/node_modules/
+/frontend/dist/
+
+# 🛠️ Configuraciones Locales de IDEs y Editores
+.idea/
+.vscode/
+*.iml
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+
+# 🍏 🪟 Archivos del Sistema Operativo
+.DS_Store
+Thumbs.db
