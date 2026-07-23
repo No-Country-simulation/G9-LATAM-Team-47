@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/v1/analisis/predict")
 @RequiredArgsConstructor
 @Tag(
-        name = "Análisis Financiero (IA)",
+        name = "FinanceAI",
         description = "Generacion de diagnosticos financieros simulado por AI,a partir de los transacciones de un usuario"
 )
 public class AnalisisController {

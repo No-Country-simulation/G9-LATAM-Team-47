@@ -37,8 +37,7 @@ public record AnalisisRequest (
         String frecuenciaAhorro,
 
         @Schema(
-                description = "Lista de transacciones que un usuario realiza, Debe incluir minimo una",
-                example = "{\"descripcion\": recreacion, \"valor\": 210}"
+                description = "Lista de transacciones que un usuario realiza, Debe incluir minimo una"
         )
         @NotEmpty(message = "Se debe enviar al menos una transaccion")
         List<TransactionRequest> transactions
