@@ -1,5 +1,6 @@
 package com.nocountry.financeai.service.impl;
 
+import com.nocountry.financeai.client.IAClient;
 import com.nocountry.financeai.dto.request.AnalisisRequest;
 import com.nocountry.financeai.dto.response.AnalisisResponse;
 import com.nocountry.financeai.entity.HistorialAnalisisEntity;
@@ -13,17 +14,12 @@ import org.springframework.web.client.RestClient;
 @Service
 @RequiredArgsConstructor
 public class AnalisisIAServiceImpl implements AnalisisIAService {
-    private final RestClient restClient;
+    
+    private final IAClient iaClient;
     private final HistorialAnalisisRepository historialAnalisisRepository;
-
     @Override
     public AnalisisResponse analizar(AnalisisRequest request) {
-
-         AnalisisResponse response = restClient.post()
-                .uri("/predict")
-                .body(request)
-                .retrieve()
-                .body(AnalisisResponse.class);
+    AnalisisResponse response = iaClient.analizar(request);
 
         HistorialAnalisisEntity historialAnalisisEntity = HistorialAnalisisEntity.builder()
                 .perfilFinanciero(PerfilFinanciero.valueOf(response.perfilFinanciero()))
