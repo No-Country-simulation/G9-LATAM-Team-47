@@ -1,7 +1,6 @@
 package com.nocountry.financeai.service.impl;
 
 import com.nocountry.financeai.dto.response.HistorialAnalisisResponse;
-import com.nocountry.financeai.model.HistorialAnalisis;
 import com.nocountry.financeai.repository.HistorialAnalisisRepository;
 import com.nocountry.financeai.service.HistorialAnalisisService;
 import lombok.RequiredArgsConstructor;
@@ -14,6 +13,20 @@ import java.util.List;
 public class HistorialAnalisisServiceImpl implements HistorialAnalisisService {
     private final HistorialAnalisisRepository historialAnalisisRepository;
 
+    @Override
+    public List<HistorialAnalisisResponse> obtenerHistorialPorId(Long id) {
+        return historialAnalisisRepository.findByUsuarioId(id)
+                .stream()
+                .map(historil -> new HistorialAnalisisResponse(
+                        historil.getId(),
+                        historil.getUsuarioId(),
+                        historil.getPerfilFinanciero(),
+                        historil.getProbabilidad(),
+                        historil.getResumenGastos(),
+                        historil.getRecomendaciones()
+                ))
+                .toList();
+    }
 
     @Override
     public List<HistorialAnalisisResponse> obtenerHistorial() {
@@ -25,9 +38,12 @@ public class HistorialAnalisisServiceImpl implements HistorialAnalisisService {
                         historial.getUsuarioId(),
                         historial.getPerfilFinanciero(),
                         historial.getProbabilidad(),
+                        historial.getResumenGastos(),
                         historial.getRecomendaciones()
                 ))
                 .toList();
 
     }
 }
+
+

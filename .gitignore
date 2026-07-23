@@ -20,3 +20,9 @@ Thumbs.db
 # --- Infraestructura y Seguridad ---
 .env
 *.local
+
+# --- Python Mock API ---
+.venv/
+venv/
+__pycache__/
+*.pyc

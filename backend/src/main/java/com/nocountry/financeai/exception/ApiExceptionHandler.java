@@ -1,6 +1,8 @@
 package com.nocountry.financeai.exception;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -12,6 +14,18 @@ import java.util.List;
 @Slf4j
 @RestControllerAdvice
 public class ApiExceptionHandler {
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<ErrorResponse> gestionarErrorGeneral(Exception e) {
+        log.error("Error interno del servidor", e);
+        ErrorResponse error = new ErrorResponse(
+                500,
+                "Error interno del servidor",
+                List.of(),
+                LocalDateTime.now()
+        );
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+
+    }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ErrorResponse gestionarErroresValidacion(MethodArgumentNotValidException ex) {
@@ -40,6 +54,7 @@ public class ApiExceptionHandler {
                 List.of(),
                 LocalDateTime.now()
         );
+        return error;
     }
 }
 

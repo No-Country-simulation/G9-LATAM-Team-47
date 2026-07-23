@@ -15,7 +15,7 @@ import java.util.List;
 public class ErrorResponse {
 
     private int codigo;
-    private String mensage;
+    private String mensaje;
     private List<String> errores;
     private LocalDateTime fechaError;
 }

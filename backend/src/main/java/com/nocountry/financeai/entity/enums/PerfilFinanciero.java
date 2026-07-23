@@ -1,4 +1,4 @@
-package com.nocountry.financeai.model.enums.PerfilFinanciero;
+package com.nocountry.financeai.entity.enums;
 
 public enum PerfilFinanciero {
     SALUDABLE,
