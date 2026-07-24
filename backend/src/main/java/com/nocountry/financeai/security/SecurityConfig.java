@@ -25,7 +25,20 @@ public class SecurityConfig {
                     .csrf(csrf -> csrf.disable())
                     .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                     .authorizeHttpRequests(auth -> auth
+                            // 1. Endpoints Públicos de Autenticación
                             .requestMatchers("/api/v1/auth/**").permitAll()
+
+                            // 2. Endpoints Públicos de Documentación Swagger / OpenAPI
+                            .requestMatchers(
+                                    "/v3/api-docs/**",
+                                    "/v3/api-docs",
+                                    "/swagger-ui/**",
+                                    "/swagger-ui.html",
+                                    "/swagger-resources/**",
+                                    "/webjars/**"
+                            ).permitAll()
+
+                            // 3. Cualquier otra ruta requiere Token JWT
                             .anyRequest().authenticated()
                     )
                     // Interceptar peticiones con JwtAuthFilter antes del filtro por defecto de Spring
