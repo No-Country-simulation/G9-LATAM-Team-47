@@ -25,8 +25,13 @@ public class SecurityConfig {
                     .csrf(csrf -> csrf.disable())
                     .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                     .authorizeHttpRequests(auth -> auth
-                            .requestMatchers("/api/v1/auth/**").permitAll()
-                            .anyRequest().authenticated()
+                            .requestMatchers("/api/v1/auth/**",
+                                    "/swagger-ui/**",
+                                    "/v3/api-docs/**",
+                                    "/swagger-ui.html")
+                            .permitAll()
+                            .anyRequest()
+                            .authenticated()
                     )
                     // Interceptar peticiones con JwtAuthFilter antes del filtro por defecto de Spring
                     .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)

@@ -1,3 +1,35 @@
-spring:
-  application:
-    name: financeai
+services:
+  postgres-db:
+    image: postgres:16-alpine
+    container_name: financeai_postgres
+    environment:
+      POSTGRES_DB: financeai_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  mock-api:
+    build: ./mock-api
+    container_name: financeai_mock_api
+    ports:
+      - "8000:8000"
+
+  backend:
+    build: ./backend
+    container_name: financeai_backend
+    ports:
+      - "8080:8080"
+    depends_on:
+      - postgres-db
+      - mock-api
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-db:5432/financeai_db
+      SPRING_DATASOURCE_USERNAME: postgres
+      SPRING_DATASOURCE_PASSWORD: postgres
+      IA_API_URL: http://mock-api:8000
+
+volumes:
+  postgres_data:
