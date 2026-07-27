@@ -10,4 +10,8 @@ public interface TransactionService {
     List<TransactionResponseDTO> listarTransacciones();
 
     TransactionResponseDTO crearTransaccion(TransactionRequestDTO dto);
+
+    TransactionResponseDTO actualizarTransaccion(Long id, TransactionRequestDTO dto);
+
+    void eliminarTransaccion(Long id);
 }

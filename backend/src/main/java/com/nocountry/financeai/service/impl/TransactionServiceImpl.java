@@ -17,8 +17,8 @@ import java.util.List;
 
 public class TransactionServiceImpl implements TransactionService {
 
-private final TransactionRepository transactionRepository;
-private final UserRepository userRepository;
+    private final TransactionRepository transactionRepository;
+    private final UserRepository userRepository;
 
 
     @Override
@@ -62,5 +62,36 @@ private final UserRepository userRepository;
                 guardada.getFecha(),
                 guardada.getUsuario().getId()
         );
+    }
+
+    @Override
+    public TransactionResponseDTO actualizarTransaccion(Long id, TransactionRequestDTO dto) {
+        TransactionEntity transaction = transactionRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Transacción no encontrada"));
+
+        transaction.setMonto(dto.monto());
+        transaction.setTipo(dto.tipo());
+        transaction.setCategoria(dto.categoria());
+        transaction.setDescripcion(dto.descripcion());
+        transaction.setFecha(dto.fecha());
+
+        TransactionEntity actualizada = transactionRepository.save(transaction);
+        return new TransactionResponseDTO(
+                actualizada.getId(),
+                actualizada.getMonto(),
+                actualizada.getTipo(),
+                actualizada.getCategoria(),
+                actualizada.getDescripcion(),
+                actualizada.getFecha(),
+                actualizada.getUsuario().getId()
+        );
+    }
+
+    @Override
+    public void eliminarTransaccion(Long id) {
+        TransactionEntity transaction = transactionRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Transacción no encontrada"));
+
+        transactionRepository.delete(transaction);
     }
 }
