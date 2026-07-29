@@ -18,6 +18,8 @@ import org.springframework.web.bind.annotation.PathVariable;
 
 import org.springframework.web.bind.annotation.DeleteMapping;
 
+import jakarta.validation.Valid;
+
 @RestController
 @RequestMapping("/api/v1/transactions")
 public class TransactionController {
@@ -34,14 +36,14 @@ public class TransactionController {
     }
 
     @PostMapping
-    public TransactionResponseDTO crearTransaccion(@RequestBody TransactionRequestDTO request){
+    public TransactionResponseDTO crearTransaccion(@Valid @RequestBody TransactionRequestDTO request){
         return transactionService.crearTransaccion(request);
     }
 
     @PutMapping("/{id}")
     public TransactionResponseDTO actualizarTransacccion(
             @PathVariable Long id,
-            @RequestBody TransactionRequestDTO request){
+            @Valid @RequestBody TransactionRequestDTO request){
 
         return transactionService.actualizarTransaccion(id, request);
     }
