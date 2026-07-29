@@ -1,8 +1,5 @@
 package com.nocountry.financeai.controller;
 
-import com.nocountry.financeai.repository.TransactionRepository;
-import com.nocountry.financeai.entity.TransactionEntity;
-
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -11,23 +8,48 @@ import org.springframework.web.bind.annotation.RequestBody;
 
 import java.util.List;
 
+import com.nocountry.financeai.dto.TransactionRequestDTO;
+import com.nocountry.financeai.dto.TransactionResponseDTO;
+
+import com.nocountry.financeai.service.TransactionService;
+
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+
+import org.springframework.web.bind.annotation.DeleteMapping;
+
+import jakarta.validation.Valid;
+
 @RestController
 @RequestMapping("/api/v1/transactions")
 public class TransactionController {
 
-    private final TransactionRepository transactionRepository;
+    private final TransactionService transactionService;
 
-    public TransactionController(TransactionRepository transactionRepository) {
-        this.transactionRepository = transactionRepository;
+    public TransactionController(TransactionService transactionService) {
+        this.transactionService = transactionService;
     }
 
     @GetMapping
-    public List<TransactionEntity> listarTransacciones(){
-        return transactionRepository.findAll();
+    public List<TransactionResponseDTO> listarTransacciones(){
+        return transactionService.listarTransacciones();
     }
 
     @PostMapping
-    public TransactionEntity crearTransaccion(@RequestBody TransactionEntity transaction){
-        return transactionRepository.save(transaction);
+    public TransactionResponseDTO crearTransaccion(@Valid @RequestBody TransactionRequestDTO request){
+        return transactionService.crearTransaccion(request);
+    }
+
+    @PutMapping("/{id}")
+    public TransactionResponseDTO actualizarTransacccion(
+            @PathVariable Long id,
+            @Valid @RequestBody TransactionRequestDTO request){
+
+        return transactionService.actualizarTransaccion(id, request);
+    }
+
+    @DeleteMapping("/{id}")
+    public void eliminarTransaccion(@PathVariable Long id) {
+        transactionService.eliminarTransaccion(id);
     }
 }
