@@ -20,3 +20,5 @@ Thumbs.db
 # --- Infraestructura y Seguridad ---
 .env
 *.local
+application.properties
+application-dev.properties
