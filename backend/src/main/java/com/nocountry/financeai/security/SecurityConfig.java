@@ -1,8 +1,11 @@
 package com.nocountry.financeai.security;
 
+import com.nocountry.financeai.security.JwtAuthFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -25,15 +28,21 @@ public class SecurityConfig {
                     .csrf(csrf -> csrf.disable())
                     .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                     .authorizeHttpRequests(auth -> auth
+                            // 1. Endpoints Públicos de Autenticación
+                            .requestMatchers("/api/v1/auth/**").permitAll()
+
+                            // 2. Endpoints Públicos de Documentación Swagger / OpenAPI
                             .requestMatchers(
-                                    "/api/v1/auth/**",
-                                    "/api/v1/analisis/predict",
-                                    "/swagger-ui/**",
                                     "/v3/api-docs/**",
-                                    "/swagger-ui.html")
-                            .permitAll()
-                            .anyRequest()
-                            .authenticated()
+                                    "/v3/api-docs",
+                                    "/swagger-ui/**",
+                                    "/swagger-ui.html",
+                                    "/swagger-resources/**",
+                                    "/webjars/**"
+                            ).permitAll()
+
+                            // 3. Cualquier otra ruta requiere Token JWT
+                            .anyRequest().authenticated()
                     )
                     // Interceptar peticiones con JwtAuthFilter antes del filtro por defecto de Spring
                     .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
@@ -47,4 +56,9 @@ public class SecurityConfig {
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
+    @Bean
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration) throws Exception {
+        return authenticationConfiguration.getAuthenticationManager();
+    }
+
 }
