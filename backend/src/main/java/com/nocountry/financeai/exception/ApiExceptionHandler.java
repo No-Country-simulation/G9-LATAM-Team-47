@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.client.ResourceAccessException;
 
+import java.time.LocalDateTime;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -18,58 +19,63 @@ import java.util.stream.Collectors;
 @RestControllerAdvice
 public class ApiExceptionHandler {
 
-    // 1. Error Genérico (Corregido)
+    // 1. Error Genérico (500)
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> gestionarErrorGeneral(Exception e) {
         log.error("Error interno del servidor", e);
-        // Usamos el constructor: String error, String message, int status
+
         ErrorResponse error = new ErrorResponse(
-                "Internal Server Error",
-                "Error interno del servidor",
-                HttpStatus.INTERNAL_SERVER_ERROR.value()
+                "Internal Server Error",                  // error (Título)
+                "Error interno del servidor",             // message (Detalle)
+                HttpStatus.INTERNAL_SERVER_ERROR.value(), // status (Ej: 500)
+                LocalDateTime.now()                       // timestamp
         );
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
     }
 
-    // 2. Errores de Validación (Corregido)
+    // 2. Errores de Validación (400)
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> gestionarErroresValidacion(MethodArgumentNotValidException ex) {
         log.warn("Se recibieron datos inválidos en la petición");
 
-        // Convertimos la lista de errores en un solo String para que quepa en el record
+        // Convertimos la lista de errores en un solo String
         String errores = ex.getBindingResult().getFieldErrors().stream()
-                .map(error -> error.getField() + ": " + error.getDefaultMessage())
+                .map(err -> err.getField() + ": " + err.getDefaultMessage())
                 .collect(Collectors.joining(", "));
 
         ErrorResponse error = new ErrorResponse(
-                "Bad Request",
-                "Error de validación: " + errores,
-                HttpStatus.BAD_REQUEST.value()
+                "Bad Request",                            // error (Título)
+                "Error de validación: " + errores,        // message (Detalle)
+                HttpStatus.BAD_REQUEST.value(),           // status (Ej: 400)
+                LocalDateTime.now()                       // timestamp
         );
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
     }
 
-    // 3. Error de Conexión a la IA (Corregido para devolver ResponseEntity)
+    // 3. Error de Conexión a la IA (503)
     @ExceptionHandler(ResourceAccessException.class)
     public ResponseEntity<ErrorResponse> gestionarErrorConexionIA(ResourceAccessException ex) {
         log.error("No fue posible conectar con la API de análisis");
 
         ErrorResponse error = new ErrorResponse(
-                "Service Unavailable",
-                "El servicio de Análisis no está disponible",
-                HttpStatus.SERVICE_UNAVAILABLE.value()
+                "Service Unavailable",                            // error (Título)
+                "El servicio de Análisis no está disponible",     // message (Detalle)
+                HttpStatus.SERVICE_UNAVAILABLE.value(),           // status (Ej: 503)
+                LocalDateTime.now()                               // timestamp
         );
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(error);
     }
 
-    // 4. EL 401 QUE NECESITÁBAMOS HOY PARA EL SLICE 1
+    // 4. Intento de Login Fallido (401)
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity<ErrorResponse> handleBadCredentialsException(BadCredentialsException ex) {
         log.warn("Intento de login fallido");
+
         ErrorResponse error = new ErrorResponse(
-                "Unauthorized",
-                "Credenciales inválidas. Verifica tu correo y contraseña.",
-                HttpStatus.UNAUTHORIZED.value()
+                "Unauthorized",                                             // error (Título)
+                "Credenciales inválidas. Verifica tu correo y contraseña.", // message (Detalle)
+                HttpStatus.UNAUTHORIZED.value(),                            // status (Ej: 401)
+                LocalDateTime.now()                                         // timestamp
         );
         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error);
     }

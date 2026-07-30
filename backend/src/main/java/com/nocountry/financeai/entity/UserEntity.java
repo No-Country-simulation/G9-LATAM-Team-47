@@ -2,6 +2,7 @@ package com.nocountry.financeai.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
@@ -28,6 +29,26 @@ public class UserEntity {
 
     @Column(nullable = false)
     private String password;
+
+    private Integer edad;
+
+    @Column(length = 50)
+    private String sexo;
+
+    @Column(name = "estado_civil", length = 50)
+    private String estadoCivil;
+
+    @Column(name = "numero_hijos")
+    private Integer numeroHijos;
+
+    @Column(name = "empleo_formal")
+    private Boolean empleoFormal;
+
+    @Column(name = "ingreso_mensual", precision = 15, scale = 2)
+    private BigDecimal ingresoMensual;
+
+    @Column(name = "linea_credito", precision = 15, scale = 2)
+    private BigDecimal lineaCredito;
 
     @Builder.Default
     @Column(length = 20)

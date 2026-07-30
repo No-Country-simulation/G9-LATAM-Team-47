@@ -22,3 +22,4 @@ Thumbs.db
 *.local
 application.properties
 application-dev.properties
+repomix.config.json
