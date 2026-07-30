@@ -1,39 +1,80 @@
 package com.nocountry.financeai.service.impl;
 
+import com.nocountry.financeai.dto.request.LoginRequest;
 import com.nocountry.financeai.dto.request.RegisterRequest;
 import com.nocountry.financeai.dto.response.AuthResponse;
 import com.nocountry.financeai.entity.UserEntity;
+import com.nocountry.financeai.exception.UserAlreadyExistsException;
 import com.nocountry.financeai.repository.UserRepository;
+import com.nocountry.financeai.security.JwtUtil;
 import com.nocountry.financeai.service.AuthService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.userdetails.User;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-@Service // <--- ¡ESTA ANOTACIÓN ES LA QUE RESUELVE TU ERROR!
+import java.util.ArrayList;
+
+@Service
 @RequiredArgsConstructor
-public class AuthServiceImpl implements AuthService { // <--- DEBE IMPLEMENTAR LA INTERFAZ
+public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
+    private final JwtUtil jwtUtil;
+    private final AuthenticationManager authenticationManager;
 
     @Override
-    @Transactional
     public AuthResponse register(RegisterRequest request) {
-        if (userRepository.findByEmail(request.email()).isPresent()) {
-            throw new IllegalArgumentException("El email ya se encuentra registrado.");
+        // 1. Usamos request.email() en vez de getEmail() por ser un record
+        if (userRepository.existsByEmail(request.email())) {
+            throw new UserAlreadyExistsException("El correo ya está registrado");
         }
 
-        UserEntity newUser = new UserEntity();
-        newUser.setNombre(request.nombre());
-        newUser.setEmail(request.email());
-        newUser.setPassword(passwordEncoder.encode(request.password()));
-
-        userRepository.save(newUser);
-
-        return AuthResponse.builder()
-                .message("Usuario registrado con éxito")
-                .email(newUser.getEmail())
+        // 2. Usamos request.nombre() tal cual lo definiste en tu record
+        UserEntity user = UserEntity.builder()
+                .nombre(request.nombre())
+                .email(request.email())
+                .password(passwordEncoder.encode(request.password()))
                 .build();
+
+        userRepository.save(user);
+
+        // 3. Adaptamos el usuario a UserDetails para que el JwtUtil lo acepte sin errores
+        UserDetails userDetails = User.builder()
+                .username(user.getEmail())
+                .password(user.getPassword())
+                .authorities(new ArrayList<>())
+                .build();
+
+        String token = jwtUtil.generateToken(userDetails);
+        return new AuthResponse(token, "Usuario registrado exitosamente");
+    }
+
+    @Override
+    public AuthResponse login(LoginRequest request) {
+        // NOTA: Si también convertiste LoginRequest a record, debes cambiar
+        // request.getEmail() por request.email() y request.getPassword() por request.password()
+
+        authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
+        );
+
+        UserEntity user = userRepository.findByEmail(request.getEmail())
+                .orElseThrow(() -> new BadCredentialsException("Usuario no encontrado"));
+
+        // Adaptamos el usuario autenticado a UserDetails
+        UserDetails userDetails = User.builder()
+                .username(user.getEmail())
+                .password(user.getPassword())
+                .authorities(new ArrayList<>())
+                .build();
+
+        String token = jwtUtil.generateToken(userDetails);
+        return new AuthResponse(token, "Inicio de sesión exitoso");
     }
 }
