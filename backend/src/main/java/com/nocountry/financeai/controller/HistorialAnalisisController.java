@@ -19,7 +19,7 @@ public class HistorialAnalisisController {
 
 
     @GetMapping("/usuario/{userId}")
-    public List<HistorialAnalisisResponse> obtenerHistorialPorId(@Valid @PathVariable Long userId) {
+    public List<HistorialAnalisisResponse> obtenerHistorialPorId(@PathVariable Long userId) {
         return historialAnalisisService.obtenerHistorialPorId(userId);
     }
 

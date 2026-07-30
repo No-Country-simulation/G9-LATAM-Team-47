@@ -2,6 +2,7 @@ package com.nocountry.financeai.dto.request;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 
 import java.math.BigDecimal;
@@ -40,5 +41,5 @@ public record AnalisisRequest (
                 description = "Lista de transacciones que un usuario realiza, Debe incluir minimo una"
         )
         @NotEmpty(message = "Se debe enviar al menos una transaccion")
-        List<TransactionRequest> transactions
+        List<@Valid TransactionRequest> transacciones
 ) {}

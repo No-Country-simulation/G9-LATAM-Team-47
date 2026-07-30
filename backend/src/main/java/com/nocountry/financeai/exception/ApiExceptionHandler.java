@@ -45,7 +45,7 @@ public class ApiExceptionHandler {
     }
 
     @ExceptionHandler(ResourceAccessException.class)
-    public ErrorResponse gestionarErroresValidacion(Exception ex) {
+    public ErrorResponse gestionarErrorApiConexion(Exception ex) {
         log.error( "No fue posible conectar con la API de analisis");
 
         ErrorResponse error = new ErrorResponse(

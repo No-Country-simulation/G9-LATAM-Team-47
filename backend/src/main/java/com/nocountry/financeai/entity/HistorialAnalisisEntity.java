@@ -23,6 +23,7 @@ public class HistorialAnalisisEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @ManyToOne(fetch= FetchType.LAZY, optional = false)
     @Column(name = "usuario_id", nullable = false)
     private Long usuarioId;
 
@@ -32,6 +33,12 @@ public class HistorialAnalisisEntity {
 
     @Column(nullable = false, precision = 4, scale = 2)
     private BigDecimal probabilidad;
+
+    @Column(name = "nivel_endeudamiento", nullable = false)
+    private Integer nivelEndeudamiento;
+
+    @Column(name = "frecuencia_ahorro", nullable = false)
+    private String frecuenciaAhorro;
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "resumen_gastos")
