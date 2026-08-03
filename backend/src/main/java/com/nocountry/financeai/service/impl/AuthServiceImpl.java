@@ -38,8 +38,13 @@ public class AuthServiceImpl implements AuthService {
         // 2. Usamos request.nombre() tal cual lo definiste en tu record
         UserEntity user = UserEntity.builder()
                 .nombre(request.nombre())
+                .apellido(request.apellido())
                 .email(request.email())
                 .password(passwordEncoder.encode(request.password()))
+                .fechaNacimiento(request.fechaNacimiento())
+                .sexo(request.sexo())
+                .estadoCivil(request.estadoCivil())
+                .numeroHijos(request.numeroHijos())
                 .build();
 
         userRepository.save(user);
