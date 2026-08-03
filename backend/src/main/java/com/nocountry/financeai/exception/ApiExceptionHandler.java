@@ -1,7 +1,6 @@
 package com.nocountry.financeai.exception;
 
 import com.nocountry.financeai.dto.response.ErrorResponse;
-import io.swagger.v3.oas.annotations.Hidden;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -12,73 +11,132 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.client.ResourceAccessException;
 
 import java.time.LocalDateTime;
-import java.util.stream.Collectors;
+import java.util.List;
 
+
+/**
+ * Manejo centralizado de excepciones de la API.
+ *
+ * Ajustado para mantener respuestas HTTP consistentes mediante ResponseEntity
+ * y conservar información detallada de errores para el cliente.
+ */
 @Slf4j
-@Hidden // Evita el Error 500 en Swagger
 @RestControllerAdvice
 public class ApiExceptionHandler {
+    // Maneja los recursos que no existen y devuelve HTTP 404.
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<ErrorResponse> gestionarRecursoNoEncontrado(
+            ResourceNotFoundException ex
+    ) {
+        log.warn("Recurso no encontrado: {}", ex.getMessage());
 
-    // 1. Error Genérico (500)
+        ErrorResponse error = new ErrorResponse(
+                404,
+                "Recurso no encontrado",
+                List.of(ex.getMessage()),
+                LocalDateTime.now()
+        );
+
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(error);
+    }
+    // Maneja conflictos cuando el usuario intenta crear un perfil financiero que ya existe.
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<ErrorResponse> gestionarEstadoInvalido(
+            IllegalStateException ex
+    ) {
+        log.warn("Conflicto en el estado de la solicitud: {}", ex.getMessage());
+
+        ErrorResponse error = new ErrorResponse(
+                HttpStatus.CONFLICT.value(),
+                ex.getMessage(),
+                List.of(),
+                LocalDateTime.now()
+        );
+
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .body(error);
+    }
+
+    // Manejo general de errores no controlados de la aplicación.
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> gestionarErrorGeneral(Exception e) {
         log.error("Error interno del servidor", e);
 
         ErrorResponse error = new ErrorResponse(
-                "Internal Server Error",                  // error (Título)
-                "Error interno del servidor",             // message (Detalle)
-                HttpStatus.INTERNAL_SERVER_ERROR.value(), // status (Ej: 500)
-                LocalDateTime.now()                       // timestamp
+                500,
+                "Error interno del servidor",
+                List.of(),
+                LocalDateTime.now()
         );
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(error);
+
+        return ResponseEntity
+                .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(error);
     }
 
-    // 2. Errores de Validación (400)
+    // Ajustado para devolver errores de validación detallados por campo, manteniendo el código HTTP correcto (400 Bad Request).
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    public ResponseEntity<ErrorResponse> gestionarErroresValidacion(MethodArgumentNotValidException ex) {
+    public ResponseEntity<ErrorResponse> gestionarErroresValidacion(
+            MethodArgumentNotValidException ex
+    ) {
         log.warn("Se recibieron datos inválidos en la petición");
 
-        // Convertimos la lista de errores en un solo String
-        String errores = ex.getBindingResult().getFieldErrors().stream()
-                .map(err -> err.getField() + ": " + err.getDefaultMessage())
-                .collect(Collectors.joining(", "));
+        List<String> errores = ex.getBindingResult()
+                .getFieldErrors()
+                .stream()
+                .map(error -> error.getField() + ": " + error.getDefaultMessage())
+                .toList();
 
         ErrorResponse error = new ErrorResponse(
-                "Bad Request",                            // error (Título)
-                "Error de validación: " + errores,        // message (Detalle)
-                HttpStatus.BAD_REQUEST.value(),           // status (Ej: 400)
-                LocalDateTime.now()                       // timestamp
+                400,
+                "Error de validacion",
+                errores,
+                LocalDateTime.now()
         );
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(error);
+
+        return ResponseEntity
+                .status(HttpStatus.BAD_REQUEST)
+                .body(error);
     }
 
-    // 3. Error de Conexión a la IA (503)
+    // Ajustado para diferenciar fallos de disponibilidad del serivicio de analisis(mock-api/modelo-dataScienc) mediante respuesta HTTP 503 Service Unavailable.
     @ExceptionHandler(ResourceAccessException.class)
-    public ResponseEntity<ErrorResponse> gestionarErrorConexionIA(ResourceAccessException ex) {
-        log.error("No fue posible conectar con la API de análisis");
+    public ResponseEntity<ErrorResponse> gestionarErrorConexionIA(
+            ResourceAccessException ex
+    ) {
+        log.error("No fue posible conectar con la API de analisis", ex);
 
         ErrorResponse error = new ErrorResponse(
-                "Service Unavailable",                            // error (Título)
-                "El servicio de Análisis no está disponible",     // message (Detalle)
-                HttpStatus.SERVICE_UNAVAILABLE.value(),           // status (Ej: 503)
-                LocalDateTime.now()                               // timestamp
+                503,
+                "El servicio de Analisis no esta disponible",
+                List.of(),
+                LocalDateTime.now()
         );
-        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(error);
+
+        return ResponseEntity
+                .status(HttpStatus.SERVICE_UNAVAILABLE)
+                .body(error);
     }
 
-    // 4. Intento de Login Fallido (401)
+    // Manejo de credenciales con autenticiacion JWT
     @ExceptionHandler(BadCredentialsException.class)
-    public ResponseEntity<ErrorResponse> handleBadCredentialsException(BadCredentialsException ex) {
+    public ResponseEntity<ErrorResponse> handleBadCredentialsException(
+            BadCredentialsException ex
+    ) {
         log.warn("Intento de login fallido");
 
         ErrorResponse error = new ErrorResponse(
-                "Unauthorized",                                             // error (Título)
-                "Credenciales inválidas. Verifica tu correo y contraseña.", // message (Detalle)
-                HttpStatus.UNAUTHORIZED.value(),                            // status (Ej: 401)
-                LocalDateTime.now()                                         // timestamp
+                401,
+                "Credenciales inválidas. Verifica tu correo y contraseña.",
+                List.of(),
+                LocalDateTime.now()
         );
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error);
+
+        return ResponseEntity
+                .status(HttpStatus.UNAUTHORIZED)
+                .body(error);
     }
 }
-
-

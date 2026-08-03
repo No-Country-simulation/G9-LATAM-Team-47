@@ -8,17 +8,17 @@ from app.models.response import (
 
 def analizar():
     resumen = ResumenGastosResponse(
-        alimentacion=Decimal("200.00"),
+        alimentacion=Decimal("300.00"),
         transporte=Decimal("100.00"),
         entretenimiento=Decimal("50.00"),
         salud=Decimal("75.00"),
-        educacion=Decimal("150.00"),
+        educacion=Decimal("550.00"),
         servicios=Decimal("80.00"),
         otros=Decimal("30.00"),
     )
 
     return AnalisisFinancieroResponse(
-        perfilFinanciero=PerfilFinanciero.EN_OBSERVACION,
+        perfilFinanciero=PerfilFinanciero.SALUDABLE,
         probabilidad=Decimal("0.75"),
         resumenGastos=resumen,
         recomendaciones=[

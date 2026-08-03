@@ -1,62 +1,96 @@
 package com.nocountry.financeai.dto.request;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.nocountry.financeai.entity.enums.EstadoCivil;
+import com.nocountry.financeai.entity.enums.Sexo;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.*;
-import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-import java.math.BigDecimal;
 
-@Data
+import java.time.LocalDate;
+
 @Builder
-@AllArgsConstructor
-@NoArgsConstructor
-public class RegisterRequest {
+public record RegisterRequest(
 
-    // --- Campos Base de Registro ---
-    @NotBlank(message = "El nombre es obligatorio")
-    private String nombre;
+        @Schema(
+                description = "Nombre del usuario",
+                example = "Carlos"
+        )
+        @NotBlank(message = "El nombre no puede estar vacío")
+        String nombre,
 
-    @Email(message = "Debe ser un correo válido")
-    @NotBlank(message = "El correo es obligatorio")
-    private String email;
+        @Schema(
+                description = "Apellido del usuario",
+                example = "Gómez"
+        )
+        @NotBlank(message = "El apellido no puede estar vacío")
+        String apellido,
 
-    @NotBlank(message = "La contraseña es obligatoria")
-    @Size(min = 6, message = "La contraseña debe tener al menos 6 caracteres")
-    private String password;
+        @Schema(
+                description = "Email del usuario",
+                example = "carlosgomez@gmail.com"
+        )
+        @NotBlank(message = "El email no puede estar vacío")
+        @Email(message = "El formato del email no es válido")
+        String email,
 
-    // --- Nuevos Campos del Perfil Financiero ---
-    @NotNull(message = "La edad es obligatoria")
-    @Min(value = 18, message = "Debe ser mayor de edad")
-    private Integer edad;
+        @Schema(
+                description = "Contraseña del usuario",
+                example = "abc123456"
+        )
+        @NotBlank(message = "La contraseña no puede estar vacía")
+        @Size(
+                min = 8,
+                message = "La contraseña debe tener al menos 8 caracteres"
+        )
+        String password,
 
-    @NotBlank(message = "El sexo es obligatorio")
-    @Pattern(
-            regexp = "^(?i)(masculino|femenino|prefiero no dar esa informacion)$",
-            message = "El sexo debe ser: masculino, femenino o prefiero no dar esa informacion"
+        @Schema(
+                description = "Fecha de nacimiento del usuario",
+                example = "1995-06-15"
+        )
+        @JsonProperty("fecha_nacimiento")
+        @NotNull(message = "La fecha de nacimiento es obligatoria")
+        @Past(message = "La fecha de nacimiento debe estar en el pasado")
+        LocalDate fechaNacimiento,
+
+        @Schema(
+                description = "Sexo del usuario",
+                example = "MASCULINO"
+        )
+        @NotNull(message = "El sexo es obligatorio")
+        Sexo sexo,
+
+        @Schema(
+                description = "Estado civil del usuario",
+                example = "SOLTERO"
+        )
+        @JsonProperty("estado_civil")
+        @NotNull(message = "El estado civil es obligatorio")
+        EstadoCivil estadoCivil,
+
+        @Schema(
+                description = "Número de hijos del usuario",
+                example = "0"
+        )
+        @JsonProperty("numero_hijos")
+        @NotNull(message = "El número de hijos es obligatorio")
+        @Min(
+                value = 0,
+                message = "El número de hijos no puede ser negativo"
+        )
+        Integer numeroHijos
+
+) {
+    @AssertTrue(
+            message = "El usuario debe ser mayor de 18 años"
     )
-    private String sexo;
+    public boolean esMayorDeEdad() {
+        return fechaNacimiento != null
+                && !fechaNacimiento.isAfter(
+                LocalDate.now().minusYears(18)
+        );
+    }
 
-    @NotBlank(message = "El estado civil es obligatorio")
-    @Pattern(
-            regexp = "^(?i)(soltero|casado)$",
-            message = "El estado civil debe ser: soltero o casado"
-    )
-    private String estadoCivil;
 
-    @NotNull(message = "El número de hijos es obligatorio")
-    @Min(value = 0, message = "El número de hijos no puede ser negativo")
-    private Integer numeroHijos;
-
-    // Al ser Boolean, Spring Boot automáticamente validará que el cliente solo envíe true (sí) o false (no).
-    @NotNull(message = "Debe indicar si tiene empleo formal (true o false)")
-    private Boolean empleoFormal;
-
-    @NotNull(message = "El ingreso mensual es obligatorio")
-    @DecimalMin(value = "0.0", inclusive = true, message = "El ingreso no puede ser negativo")
-    private BigDecimal ingresoMensual;
-
-    @NotNull(message = "La línea de crédito es obligatoria")
-    @DecimalMin(value = "0.0", inclusive = true, message = "La línea de crédito no puede ser negativa")
-    private BigDecimal lineaCredito;
 }

@@ -1,9 +1,14 @@
 package com.nocountry.financeai.entity;
 
+import com.nocountry.financeai.entity.enums.EstadoCivil;
+import com.nocountry.financeai.entity.enums.Rol;
+import com.nocountry.financeai.entity.enums.Sexo;
 import jakarta.persistence.*;
 import lombok.*;
-import java.math.BigDecimal;
+
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Entity
 @Table(name = "usuarios")
@@ -30,31 +35,27 @@ public class UserEntity {
     @Column(nullable = false)
     private String password;
 
-    private Integer edad;
+    @Column(name = "fecha_nacimiento")
+    private LocalDate fechaNacimiento;
 
-    @Column(length = 50)
-    private String sexo;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "estado_civil", length = 20)
+    private EstadoCivil estadoCivil;
 
-    @Column(name = "estado_civil", length = 50)
-    private String estadoCivil;
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private Sexo sexo;
 
     @Column(name = "numero_hijos")
     private Integer numeroHijos;
 
-    @Column(name = "empleo_formal")
-    private Boolean empleoFormal;
-
-    @Column(name = "ingreso_mensual", precision = 15, scale = 2)
-    private BigDecimal ingresoMensual;
-
-    @Column(name = "linea_credito", precision = 15, scale = 2)
-    private BigDecimal lineaCredito;
-
     @Builder.Default
+    @Enumerated(EnumType.STRING)
     @Column(length = 20)
-    private String rol = "USER";
+    private Rol rol = Rol.USER;
 
     @Builder.Default
+    @Column(nullable = false)
     private Boolean activo = true;
 
     @Column(name = "created_at", updatable = false)
@@ -62,6 +63,16 @@ public class UserEntity {
 
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
+
+
+    @OneToOne(mappedBy = "usuario", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    private PerfilFinancieroEntity perfilFinanciero;
+
+    @OneToMany(mappedBy = "usuario", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    private List<TransactionEntity> transacciones;
+
+    @OneToMany(mappedBy = "usuario", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    private List<HistorialAnalisisEntity> historialAnalisis;
 
     @PrePersist
     protected void onCreate() {

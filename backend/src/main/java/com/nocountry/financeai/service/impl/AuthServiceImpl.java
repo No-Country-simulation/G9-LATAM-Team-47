@@ -31,23 +31,20 @@ public class AuthServiceImpl implements AuthService {
     @Override
     public AuthResponse register(RegisterRequest request) {
         // 1. Usamos request.email() en vez de getEmail() por ser un record
-        if (userRepository.existsByEmail(request.getEmail())) {
+        if (userRepository.existsByEmail(request.email())) {
             throw new UserAlreadyExistsException("El correo ya está registrado");
         }
 
         // 2. Usamos request.nombre() tal cual lo definiste en tu record
-        var user = UserEntity.builder()
-                .nombre(request.getNombre())
-                .email(request.getEmail())
-                .password(passwordEncoder.encode(request.getPassword()))
-                .edad(request.getEdad())
-                .sexo(request.getSexo())
-                .estadoCivil(request.getEstadoCivil())
-                .numeroHijos(request.getNumeroHijos())
-                .empleoFormal(request.getEmpleoFormal())
-                .ingresoMensual(request.getIngresoMensual())
-                .lineaCredito(request.getLineaCredito())
-                // .role(Role.USER) (si lo estás manejando)
+        UserEntity user = UserEntity.builder()
+                .nombre(request.nombre())
+                .apellido(request.apellido())
+                .email(request.email())
+                .password(passwordEncoder.encode(request.password()))
+                .fechaNacimiento(request.fechaNacimiento())
+                .sexo(request.sexo())
+                .estadoCivil(request.estadoCivil())
+                .numeroHijos(request.numeroHijos())
                 .build();
 
         userRepository.save(user);
