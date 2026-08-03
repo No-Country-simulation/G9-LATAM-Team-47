@@ -1,5 +1,6 @@
 package com.nocountry.financeai.entity;
 
+import com.nocountry.financeai.entity.enums.RangoAhorro;
 import com.nocountry.financeai.entity.enums.PerfilFinanciero;
 import jakarta.persistence.*;
 import lombok.*;
@@ -24,8 +25,8 @@ public class HistorialAnalisisEntity {
     private Long id;
 
     @ManyToOne(fetch= FetchType.LAZY, optional = false)
-    @Column(name = "usuario_id", nullable = false)
-    private Long usuarioId;
+    @JoinColumn(name = "usuario_id", nullable = false)
+    private UserEntity usuario;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "perfil_financiero", nullable = false)
@@ -34,11 +35,12 @@ public class HistorialAnalisisEntity {
     @Column(nullable = false, precision = 4, scale = 2)
     private BigDecimal probabilidad;
 
-    @Column(name = "nivel_endeudamiento", nullable = false)
-    private Integer nivelEndeudamiento;
+    @Column(name = "nivel_endeudamiento", nullable = false, precision = 4, scale = 2)
+    private BigDecimal nivelEndeudamiento;
 
-    @Column(name = "frecuencia_ahorro", nullable = false)
-    private String frecuenciaAhorro;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "rango_ahorro", nullable = false, length = 20)
+    private RangoAhorro rangoAhorro;
 
     @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "resumen_gastos")
