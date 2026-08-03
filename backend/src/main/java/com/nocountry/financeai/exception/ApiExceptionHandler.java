@@ -1,5 +1,6 @@
 package com.nocountry.financeai.exception;
 
+import com.nocountry.financeai.dto.response.ErrorResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -13,7 +14,6 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 
-
 /**
  * Manejo centralizado de excepciones de la API.
  *
@@ -23,6 +23,42 @@ import java.util.List;
 @Slf4j
 @RestControllerAdvice
 public class ApiExceptionHandler {
+    // Maneja los recursos que no existen y devuelve HTTP 404.
+    @ExceptionHandler(ResourceNotFoundException.class)
+    public ResponseEntity<ErrorResponse> gestionarRecursoNoEncontrado(
+            ResourceNotFoundException ex
+    ) {
+        log.warn("Recurso no encontrado: {}", ex.getMessage());
+
+        ErrorResponse error = new ErrorResponse(
+                404,
+                "Recurso no encontrado",
+                List.of(ex.getMessage()),
+                LocalDateTime.now()
+        );
+
+        return ResponseEntity
+                .status(HttpStatus.NOT_FOUND)
+                .body(error);
+    }
+    // Maneja conflictos cuando el usuario intenta crear un perfil financiero que ya existe.
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<ErrorResponse> gestionarEstadoInvalido(
+            IllegalStateException ex
+    ) {
+        log.warn("Conflicto en el estado de la solicitud: {}", ex.getMessage());
+
+        ErrorResponse error = new ErrorResponse(
+                HttpStatus.CONFLICT.value(),
+                ex.getMessage(),
+                List.of(),
+                LocalDateTime.now()
+        );
+
+        return ResponseEntity
+                .status(HttpStatus.CONFLICT)
+                .body(error);
+    }
 
     // Manejo general de errores no controlados de la aplicación.
     @ExceptionHandler(Exception.class)
