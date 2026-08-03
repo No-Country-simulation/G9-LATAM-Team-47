@@ -1,8 +1,0 @@
-ALTER TABLE usuarios
-ADD COLUMN edad INTEGER,
-ADD COLUMN sexo VARCHAR(50),
-ADD COLUMN estado_civil VARCHAR(50),
-ADD COLUMN numero_hijos INTEGER,
-ADD COLUMN empleo_formal BOOLEAN,
-ADD COLUMN ingreso_mensual DECIMAL(15,2),
-ADD COLUMN linea_credito DECIMAL(15,2);
