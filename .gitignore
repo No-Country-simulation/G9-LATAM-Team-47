@@ -22,3 +22,6 @@ Thumbs.db
 *.local
 application.properties
 application-dev.properties
+__pycache__/
+*.pyc
+*.pyo
