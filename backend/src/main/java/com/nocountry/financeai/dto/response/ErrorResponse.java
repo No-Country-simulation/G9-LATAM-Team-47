@@ -1,15 +1,20 @@
 package com.nocountry.financeai.dto.response;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 public record ErrorResponse(
-        String error,
-        String message,
         int status,
+        String error,
+        List<String> message,
         LocalDateTime timestamp
 ) {
     // Constructor secundario inteligente para asignar la fecha y hora automáticamente
-    public ErrorResponse(String error, String message, int status) {
-        this(error, message, status, LocalDateTime.now());
+    public ErrorResponse(
+            int status,
+            String error,
+            List<String> message
+    ) {
+        this(status, error, message, LocalDateTime.now());
     }
 }
