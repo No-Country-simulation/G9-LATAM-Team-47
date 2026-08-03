@@ -15,6 +15,12 @@ services:
     build: ./mock-api
     container_name: financeai_mock_api
     ports:
+      - "8001:8001"
+
+  modelo-financeai:
+    build: ./data-science/modeloFinanceAI
+    container_name: financeai_modelo_Data-Science
+    ports:
       - "8000:8000"
 
   backend:
