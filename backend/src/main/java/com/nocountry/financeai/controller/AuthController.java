@@ -4,6 +4,7 @@ import com.nocountry.financeai.dto.request.LoginRequest;
 import com.nocountry.financeai.dto.request.RegisterRequest;
 import com.nocountry.financeai.dto.response.AuthResponse;
 import com.nocountry.financeai.service.AuthService;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -12,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
+@Tag(name = "Autenticacion", description = "Registro y login de usuarios")
 public class AuthController {
 
     private final AuthService authService;

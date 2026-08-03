@@ -1,28 +1,33 @@
 package com.nocountry.financeai.controller;
 
-import com.nocountry.financeai.dto.request.AnalisisRequest;
 import com.nocountry.financeai.dto.response.AnalisisResponse;
 import com.nocountry.financeai.service.AnalisisIAService;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.Valid;
+
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/v1/analisis/predict")
 @RequiredArgsConstructor
-@Tag(
-        name = "FinanceAI",
-        description = "Generacion de diagnosticos financieros simulado por AI,a partir de los transacciones de un usuario"
+@Tag(name = "Analisis",description = "Generacion de diagnosticos financieros generados por modelo dataScience"
 )
 public class AnalisisController {
     private final AnalisisIAService  analisisIAService;
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping("/usuario/{usuarioId}")
+    public AnalisisResponse analisisPorUsuario(
+            @PathVariable Long usuarioId
+    ) {
+        return analisisIAService.analizarPorUsuarioId(usuarioId);
+    }
 
     @PostMapping
-    public AnalisisResponse  predict(@Valid @RequestBody AnalisisRequest analisisRequest) {
-        return analisisIAService.analizar(analisisRequest);
+    public AnalisisResponse  analizar(@AuthenticationPrincipal UserDetails userDetails) {
+        return analisisIAService.analizar(userDetails.getUsername());
+
     }
 }
