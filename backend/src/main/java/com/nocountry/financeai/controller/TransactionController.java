@@ -2,49 +2,30 @@ package com.nocountry.financeai.controller;
 
 import com.nocountry.financeai.dto.request.TransactionRequest;
 import com.nocountry.financeai.dto.response.TransaccionResponse;
-import com.nocountry.financeai.repository.TransactionRepository;
-import com.nocountry.financeai.entity.TransactionEntity;
-
 import com.nocountry.financeai.service.TransaccionService;
+import com.nocountry.financeai.service.UserService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import lombok.AllArgsConstructor;
-import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.function.EntityResponse;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequiredArgsConstructor
 @RequestMapping("/api/v1/transacciones")
-@Tag(name = "Transacciones", description = "Registro y consulta de transacciones")
+@Tag(
+        name = "Transacciones",
+        description = "Registro y consulta de transacciones")
 public class TransactionController {
-
+    private final UserService userService;
     private final TransaccionService transaccionService;
-
-    @GetMapping
-    @PreAuthorize("hasRole('ADMIN')")
-    public List<TransaccionResponse> listarTransacciones(){
-        return transaccionService.obtenerTransacciones();
-    }
-
-    @PreAuthorize("hasRole('ADMIN')")
-    @GetMapping("/usuario/{usuarioId}")
-    public List<TransaccionResponse> listarTransaccionesPorUsuario(@PathVariable Long usuarioId) {
-        return transaccionService.obtenerTransaccionesPorUsuario(usuarioId);
-    }
-
-    @PreAuthorize("hasRole('ADMIN')")
-    @PostMapping("/usuario/{usuarioId}")
-    public TransaccionResponse crearTransaccion(
-            @PathVariable Long usuarioId,
-            @Valid @RequestBody TransactionRequest transactionRequest) {
-        return transaccionService.crearTransaccion(usuarioId, transactionRequest);
-    }
 
     @PostMapping("/usuario/transacciones")
     public TransaccionResponse crearTransaccionAutenticado(
@@ -62,6 +43,22 @@ public class TransactionController {
             @AuthenticationPrincipal UserDetails userDetails
     ) {
         return transaccionService.obtenerTransaccionesAutenticado(userDetails.getUsername());
+    }
+
+    @PatchMapping("/usuario/transacciones/{idTransaccion}")
+    public TransaccionResponse actualizarTransaccionAutenticado(
+            Authentication authentication,
+            @PathVariable Long idTransaccion,
+            @Valid @RequestBody TransactionRequest transactionRequest) {
+        return transaccionService.actualizarTransaccion(authentication.getName(), idTransaccion, transactionRequest);
+    }
+
+    @DeleteMapping("/usuario/transacciones/{idTransaccion}")
+    public ResponseEntity<Map<String,String>> eliminarTransaccionAutenticado(
+            Authentication authentication,
+            @PathVariable Long idTransaccion){
+        transaccionService.eliminarTransaccion(authentication.getName(), idTransaccion);
+        return ResponseEntity.ok(Map.of("message", "Transaccion eliminada correctamente"));
     }
 }
 

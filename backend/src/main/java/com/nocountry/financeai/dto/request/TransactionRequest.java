@@ -35,7 +35,7 @@ public record TransactionRequest(
 
         @JsonProperty("medio_pago")
         @NotNull(message = "El medio de pago es obligatorio")
-        MedioPago mediopago
+        MedioPago medioPago
 
 ) {
 }
