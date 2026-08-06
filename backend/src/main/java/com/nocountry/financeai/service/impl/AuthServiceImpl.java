@@ -32,13 +32,17 @@ public class AuthServiceImpl implements AuthService {
     public AuthResponse register(RegisterRequest request) {
         // 1. Usamos request.email() en vez de getEmail() por ser un record
         if (userRepository.existsByEmail(request.email())) {
-            throw new UserAlreadyExistsException("El correo ya está registrado");
+            throw new UserAlreadyExistsException("El correo ya esta registrado");
+        }
+        if (userRepository.existsByDocumento(request.documento())) {
+            throw new UserAlreadyExistsException("El documento ya esta registrado");
         }
 
         // 2. Usamos request.nombre() tal cual lo definiste en tu record
         UserEntity user = UserEntity.builder()
                 .nombre(request.nombre())
                 .apellido(request.apellido())
+                .documento(request.documento())
                 .email(request.email())
                 .password(passwordEncoder.encode(request.password()))
                 .fechaNacimiento(request.fechaNacimiento())
@@ -62,14 +66,12 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public AuthResponse login(LoginRequest request) {
-        // NOTA: Si también convertiste LoginRequest a record, debes cambiar
-        // request.getEmail() por request.email() y request.getPassword() por request.password()
 
         authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword())
+                new UsernamePasswordAuthenticationToken(request.email(), request.password())
         );
 
-        UserEntity user = userRepository.findByEmail(request.getEmail())
+        UserEntity user = userRepository.findByEmail(request.email())
                 .orElseThrow(() -> new BadCredentialsException("Usuario no encontrado"));
 
         // Adaptamos el usuario autenticado a UserDetails

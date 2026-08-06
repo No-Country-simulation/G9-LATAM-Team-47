@@ -17,6 +17,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@ToString(exclude = {"relationLazy"})
 public class UserEntity {
 
     @Id
@@ -28,6 +29,9 @@ public class UserEntity {
 
     @Column(length = 100)
     private String apellido;
+
+    @Column(name = "documento", nullable = false, unique = true, length = 30)
+    private String documento;
 
     @Column(nullable = false, unique = true, length = 255)
     private String email;
