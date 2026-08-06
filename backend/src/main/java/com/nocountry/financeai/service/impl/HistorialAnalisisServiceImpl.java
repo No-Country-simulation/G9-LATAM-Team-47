@@ -49,10 +49,10 @@ public class HistorialAnalisisServiceImpl implements HistorialAnalisisService {
 
     public HistorialAnalisisResponse convertirRespuesta(HistorialAnalisisEntity historial) {
         return new HistorialAnalisisResponse(
-                historial.getId(),
-                historial.getUsuario().getId(),
                 historial.getPerfilFinanciero(),
                 historial.getProbabilidad(),
+                historial.getNivelEndeudamiento(),
+                historial.getRangoAhorro(),
                 historial.getResumenGastos(),
                 historial.getRecomendaciones()
         );

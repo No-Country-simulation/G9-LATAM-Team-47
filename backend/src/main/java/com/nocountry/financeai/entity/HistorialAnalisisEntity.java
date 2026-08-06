@@ -19,6 +19,7 @@ import java.util.Map;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@ToString
 public class HistorialAnalisisEntity {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

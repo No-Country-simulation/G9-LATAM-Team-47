@@ -14,7 +14,7 @@ public class IAClient {
     public AnalisisResponse analizar(AnalisisRequest request) {
 
         return restClient.post()
-                .uri("/predict")
+                .uri("/analisis-financiero")
                 .body(request)
                 .retrieve()
                 .body(AnalisisResponse.class);

@@ -4,8 +4,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.nocountry.financeai.entity.enums.PerfilFinanciero;
 import com.nocountry.financeai.entity.enums.RangoAhorro;
 import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -41,7 +39,7 @@ public record AnalisisResponse(
                 description = "Clasificacion del nivel de ahorro del usuario (Alta, Media, Baja, Ninguna)",
                 example = "ALTA"
         )
-        @JsonProperty("porcentaje_ahorro")
+        @JsonProperty("rango_ahorro")
         RangoAhorro rangoAhorro,
 
         @Schema(
