@@ -8,7 +8,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/api/v1")
-@Tag(name = "Test")
+@Tag(
+        name = "Test",
+        description = "Prebas preeliminares del sistema "
+)
 public class TestSecurityController {
 
     // Ruta pública (dentro de /auth/**)
