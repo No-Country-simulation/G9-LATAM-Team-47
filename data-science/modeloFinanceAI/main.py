@@ -109,15 +109,14 @@ def analizar_usuario(datos: EntradaUsuario):
         if datos.transacciones:
             gasto_total = sum([float(tx.monto_transaccion) for tx in datos.transacciones])
 
-# 1. Nivel de Endeudamiento
+        # 1. Nivel de Endeudamiento (escala float 0.0 a 1.0)
         denom_endeudamiento = datos.ingreso_mensual + datos.linea_credito
         if denom_endeudamiento > 0:
-            nivel_endeudamiento_val = round(float((gasto_total / denom_endeudamiento) * 100), 2)
-            nivel_endeudamiento = f"{nivel_endeudamiento_val}%"
+            nivel_endeudamiento = round(float(gasto_total / denom_endeudamiento), 2)
         else:
-            nivel_endeudamiento = "0.0%"
+            nivel_endeudamiento = 0.0
 
-        # 2. Porcentaje y Frecuencia de Ahorro
+        # 2. Rango de Ahorro (String)
         if datos.ingreso_mensual > 0:
             ahorro_bruto = max(datos.ingreso_mensual - gasto_total, 0.0)
             pct_ahorro = ahorro_bruto / datos.ingreso_mensual
@@ -125,21 +124,17 @@ def analizar_usuario(datos: EntradaUsuario):
             pct_ahorro = 0.0
 
         if pct_ahorro >= 0.40:
-            porcentaje_ahorro_str = "Alta"
+            rango_ahorro_str = "Alta"
         elif pct_ahorro >= 0.20:
-            porcentaje_ahorro_str = "Media"
+            rango_ahorro_str = "Media"
         elif pct_ahorro > 0:
-            porcentaje_ahorro_str = "Baja"
+            rango_ahorro_str = "Baja"
         else:
-            porcentaje_ahorro_str = "Ninguna"
+            rango_ahorro_str = "Ninguna"
 
 # ----------------------------------------------------------------------
         # B) PREDICCIÓN CON MODELO DE PERFIL (.pkl)
         # ----------------------------------------------------------------------
-        # 1. Escala decimal para endeudamiento (0.0 a 1.0) para hacer match con Colab
-        nivel_endeudamiento_decimal = (gasto_total / denom_endeudamiento) if denom_endeudamiento > 0 else 0.0
-
-        # 2. DataFrame con las 9 variables exactas del modelo
         df_cliente = pd.DataFrame([{
             'edad': int(datos.edad),
             'sexo': str(datos.sexo).lower().strip(),
@@ -148,22 +143,24 @@ def analizar_usuario(datos: EntradaUsuario):
             'empleo_formal': int(datos.empleo_formal),
             'ingreso_mensual': float(datos.ingreso_mensual),
             'linea_credito': float(datos.linea_credito),
-            'nivel_endeudamiento': float(nivel_endeudamiento_decimal),
-            'porcentaje_ahorro': float(pct_ahorro)
+            'nivel_endeudamiento': float(nivel_endeudamiento),
+            'rango_ahorro': float(pct_ahorro)  # Valor decimal menor a 1
         }])
 
-        # 3. Predicción de perfil
         perfil_pred = modelo_perfil.predict(df_cliente)[0]
         perfil_str = str(perfil_pred).upper().replace(" ", "_")
 
-        # 4. Cálculo seguro de la probabilidad en porcentaje
-        probabilidad = "85.0%"  # Valor por defecto de respaldo
-        if hasattr(modelo_perfil, "predict_proba"):
-            probs = modelo_perfil.predict_proba(df_cliente)[0]
-            prob_val = round(float(np.max(probs)) * 100, 2)
-            probabilidad = f"{prob_val}%"
+        # Inicializamos la probabilidad por defecto por seguridad
+        probabilidad = 0.85
+        try:
+            if hasattr(modelo_perfil, "predict_proba"):
+                probs = modelo_perfil.predict_proba(df_cliente)[0]
+                probabilidad = round(float(np.max(probs)), 2)
+        except Exception:
+            probabilidad = 0.85
+
         # ----------------------------------------------------------------------
-        # C) CLASIFICACIÓN NLP DE TRANSACCIONES (Protección lista vacía)
+        # C) CLASIFICACIÓN NLP DE TRANSACCIONES
         # ----------------------------------------------------------------------
         resumen_gastos: Dict[str, float] = {}
         
@@ -176,7 +173,8 @@ def analizar_usuario(datos: EntradaUsuario):
                 for t in datos.transacciones
             ])
             
-            if hasattr(modelo_transacciones, "predict_proba"):
+            # Evaluación defensiva de probabilidades o predicción directa
+            try:
                 probs_matriz = modelo_transacciones.predict_proba(df_tx)
                 clases = modelo_transacciones.classes_
                 categorias_finales = []
@@ -185,50 +183,49 @@ def analizar_usuario(datos: EntradaUsuario):
                     prob_max = float(np.max(probs))
                     idx_max = int(np.argmax(probs))
                     
-                    # Umbral del 60%
+                    # Umbral de confianza al 60%
                     if prob_max <= 0.60:
                         categorias_finales.append("otros servicios")
                     else:
                         categorias_finales.append(str(clases[idx_max]))
                 
                 df_tx['categoria'] = categorias_finales
-            else:
+            except Exception:
+                # Si el modelo no soporta predict_proba, realiza la predicción directa
                 preds = modelo_transacciones.predict(df_tx)
                 df_tx['categoria'] = [str(p) for p in preds]
             
-            # Agrupar y formatear
-            agrupado = df_tx.groupby('categoria')['monto_transaccion'].sum().to_dict()
-            resumen_gastos = {str(k).lower(): round(float(v), 2) for k, v in agrupado.items()}
+            # Agrupar montos por categoría
+            agrupar = df_tx.groupby('categoria')['monto_transaccion'].sum().to_dict()
+            resumen_gastos = {str(k).lower(): round(float(v), 2) for k, v in agrupar.items()}
 
-# ----------------------------------------------------------------------
+        # ----------------------------------------------------------------------
         # D) GENERACIÓN DE RECOMENDACIONES
         # ----------------------------------------------------------------------
         recomendaciones = []
 
-        # 1. Recomendación por sobreapalancamiento en perfil RIESGOSO
         if perfil_str == "RIESGOSO" and datos.linea_credito > datos.ingreso_mensual:
             recomendaciones.append(
-                "Para aumentar el score del perfil financiero, se recomienda incrementar el ingreso mensual de modo que supere la línea de crédito asignada"
+                "Para aumentar el score del perfil financiero, se recomienda reducir el gasto o incrementar el ingreso mensual"
             )
 
-        # 2. Recomendaciones por comportamiento de gasto y ahorro
         if "entretenimiento" in resumen_gastos and resumen_gastos["entretenimiento"] > (datos.ingreso_mensual * 0.15):
             recomendaciones.append("Monitorear los gastos recurrentes de entretenimiento.")
-            
-        if nivel_endeudamiento_val > 50:
-            recomendaciones.append("Reducir el uso de tarjetas de crédito para bajar el nivel de endeudamiento.")
 
-        # Recomendación por defecto si no aplica ninguna de las anteriores
+        if nivel_endeudamiento > 0.50:
+            recomendaciones.append("Reducir las gastos para bajar el nivel de endeudamiento.")
+
         if not recomendaciones:
             recomendaciones.append("Mantener los hábitos de gasto actuales y continuar monitoreando el presupuesto.")
+
         # ----------------------------------------------------------------------
-        # E) SALIDA EN FORMATO ESTRICTO DEL BACK-END
+        # E) SALIDA EN FORMATO ESTRICTO
         # ----------------------------------------------------------------------
         return {
             "perfilFinanciero": perfil_str,
             "probabilidad": probabilidad,
             "nivel_endeudamiento": nivel_endeudamiento,
-            "porcentaje_ahorro": porcentaje_ahorro_str,
+            "rango_ahorro": rango_ahorro_str,
             "resumenGastos": resumen_gastos,
             "recomendaciones": recomendaciones
         }
@@ -238,9 +235,5 @@ def analizar_usuario(datos: EntradaUsuario):
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error interno en la inferencia del modelo: {str(e)}"
         )
-
-
-
-
 
 ####http://localhost:8000/docs####  
