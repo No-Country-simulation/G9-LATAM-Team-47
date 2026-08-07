@@ -15,7 +15,7 @@ public record LoginRequest(
 
         @Schema(
                 description = "clave del usuario",
-                example = "abc123456"
+                example = "Passwd123*"
         )
         @NotBlank(message = "La contraseña es obligatoria")
        String password

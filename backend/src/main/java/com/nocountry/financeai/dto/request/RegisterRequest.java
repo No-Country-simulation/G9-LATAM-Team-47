@@ -48,7 +48,7 @@ public record RegisterRequest(
 
         @Schema(
                 description = "Contraseña del usuario",
-                example = "abc123456"
+                example = "Passwd123*"
         )
         @NotBlank(message = "La contraseña no puede estar vacía")
         @Size(
@@ -72,14 +72,14 @@ public record RegisterRequest(
 
         @Schema(
                 description = "Sexo del usuario",
-                example = "MASCULINO"
+                example = "masculino"
         )
         @NotNull(message = "El sexo es obligatorio")
         Sexo sexo,
 
         @Schema(
                 description = "Estado civil del usuario",
-                example = "SOLTERO"
+                example = "soltero"
         )
         @JsonProperty("estado_civil")
         @NotNull(message = "El estado civil es obligatorio")

@@ -3,7 +3,7 @@ CREATE TABLE historial_analisis (
     usuario_id BIGINT NOT NULL,
     perfil_financiero VARCHAR(50) NOT NULL,
     probabilidad DECIMAL(4,2) NOT NULL,
-    nivel_endeudamiento INTEGER NOT NULL,
+    nivel_endeudamiento NUMERIC(4,2) NOT NULL,
     rango_ahorro VARCHAR(20) NOT NULL,
     resumen_gastos JSONB,
     recomendaciones JSONB NOT NULL,

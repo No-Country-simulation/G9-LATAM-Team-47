@@ -37,5 +37,11 @@ services:
       SPRING_DATASOURCE_PASSWORD: postgres
       IA_API_URL: http://modelo-financeai:8000
 
+      # Entorno local
+      OPENAPI_SERVER_URL: http://localhost:8080
+
+      # Solo para despliegue en OCI:
+      # OPENAPI_SERVER_URL: https://myfinanceai.duckdns.org
+
 volumes:
   postgres_data:
