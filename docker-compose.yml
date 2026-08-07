@@ -30,12 +30,12 @@ services:
       - "8080:8080"
     depends_on:
       - postgres-db
-      - mock-api
+      - modelo-financeai
     environment:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-db:5432/financeai_db
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
-      IA_API_URL: http://mock-api:8000
+      IA_API_URL: http://modelo-financeai:8000
 
 volumes:
   postgres_data:
