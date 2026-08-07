@@ -76,16 +76,17 @@ if (registerForm) {
 
         // Construir el payload respetando el DTO de Spring Boot
         const payload = {
-            email: document.getElementById('regEmail').value,
-            password: document.getElementById('regPassword').value,
-            edad: parseInt(document.getElementById('regEdad').value),
-            sexo: document.getElementById('regSexo').value,
-            estadoCivil: document.getElementById('regEstadoCivil').value,
-            numeroHijos: parseInt(document.getElementById('regHijos').value),
-            ingresoMensual: parseFloat(document.getElementById('regIngreso').value),
-            lineaCredito: parseFloat(document.getElementById('regCredito').value),
-            empleoFormal: document.getElementById('regEmpleoFormal').checked
+            nombre: document.getElementById('reg-nombre').value,
+            apellido: document.getElementById('reg-apellido').value,
+            email: document.getElementById('reg-email').value,
+            password: document.getElementById('reg-password').value,
+            fecha_nacimiento: document.getElementById('reg-fecha-nacimiento').value, // 👈 Ajustado a snake_case
+            sexo: document.getElementById('reg-sexo').value,
+            estado_civil: document.getElementById('reg-estado-civil').value,        // 👈 Ajustado a snake_case
+            numero_hijos: parseInt(document.getElementById('reg-hijos').value, 10)  // 👈 Ajustado a snake_case
         };
+
+        console.log("PAYLOAD ENVIADO AL BACKEND:", JSON.stringify(payload, null, 2));
 
         try {
             const response = await fetch(`${API_BASE_URL}/register`, {
