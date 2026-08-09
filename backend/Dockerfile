@@ -1,6 +1,10 @@
 FROM eclipse-temurin:21-jdk AS build
 WORKDIR /app
 COPY . .
+
+# NUEVA LÍNEA: Limpieza de saltos de línea de Windows (CRLF a LF)
+RUN sed -i 's/\r$//' mvnw
+
 RUN chmod +x mvnw
 RUN ./mvnw clean package -DskipTests
 FROM eclipse-temurin:21-jre

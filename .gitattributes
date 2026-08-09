@@ -1,1 +1,2 @@
-* text=auto eol=lf
+text=auto eol=lf
+backend/mvnw text eol=lf

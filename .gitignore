@@ -25,3 +25,6 @@ application-dev.properties
 repomix.config.json
 __pycache__/
 *.pyc
+repomix.config.json
+__pycache__/
+*.pyc
