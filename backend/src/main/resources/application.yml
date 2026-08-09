@@ -1,11 +1,13 @@
 spring:
   application:
     name: financeai
+
   datasource:
     url: ${SPRING_DATASOURCE_URL}
     username: ${SPRING_DATASOURCE_USERNAME}
     password: ${SPRING_DATASOURCE_PASSWORD}
     driver-class-name: org.postgresql.Driver
+
   jpa:
     hibernate:
       ddl-auto: validate
@@ -14,7 +16,8 @@ spring:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
     show-sql: true
-    open-in-view: false
+    open-in-view: false # Resuelve el hallazgo AUD-11
+
   flyway:
     enabled: true
     baseline-on-migrate: true
@@ -26,3 +29,12 @@ jwt:
 ia:
   api:
     url: ${IA_API_URL}
+
+# Configuración de Logs para depuración local
+logging:
+  level:
+    org.springframework.web: INFO
+    com.nocountry.financeai: DEBUG
+    # Muestra los valores reales inyectados en las sentencias SQL de Hibernate
+    org.hibernate.orm.jdbc.bind: TRACE
+    org.hibernate.orm.jdbc.extract: TRACE
