@@ -23,10 +23,10 @@ if (formLogin) {
 
             if (response.ok) {
                 const data = await response.json();
-                
-                // AUD-01: El backend Java devuelve el JWT dentro del campo 'message' debido al diseño del record AuthResponse
-                const token = data.message || data.token;
-                
+
+                // El backend devuelve el JWT real en el campo 'token' (AuthResponse.token)
+                const token = data.token;
+
                 if (token) {
                     localStorage.setItem('jwtToken', token);
                     // AUD-18: Redirigir al dashboard unificado
@@ -85,7 +85,9 @@ if (formRegister) {
             }
 
             const dataReg = await responseReg.json();
-            const token = dataReg.message || dataReg.token;
+
+            // El backend devuelve el JWT real en el campo 'token' (AuthResponse.token)
+            const token = dataReg.token;
 
             if (token) {
                 // Guardar token temporalmente para autenticar la petición de perfil
