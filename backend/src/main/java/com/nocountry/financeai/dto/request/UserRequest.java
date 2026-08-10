@@ -47,7 +47,7 @@ public record UserRequest(
 
         @Schema(
                 description = "Estado civil del usuario" ,
-                example = "SOLTERO"
+                example = "soltero"
         )
 
         @JsonProperty("estado_civil")
@@ -55,7 +55,7 @@ public record UserRequest(
 
         @Schema(
                 description = "Sexo de nacimiento del usuario" ,
-                example = "MASCULINO"
+                example = "masculino"
         )
         Sexo sexo,
 

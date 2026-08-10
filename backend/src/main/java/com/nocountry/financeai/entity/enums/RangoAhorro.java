@@ -15,8 +15,8 @@ public enum RangoAhorro {
     NINGUNA;
 
     @JsonCreator
-    public static PerfilFinanciero forString(String value) {
-        return PerfilFinanciero.valueOf(value.trim().toUpperCase());
+    public static RangoAhorro forString(String value) {
+        return RangoAhorro.valueOf(value.trim().toUpperCase());
     }
 
     @JsonValue

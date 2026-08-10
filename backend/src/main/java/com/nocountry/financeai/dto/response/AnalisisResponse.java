@@ -15,7 +15,7 @@ public record AnalisisResponse(
 
         @Schema(
                 description = "Clasificacion del perfil financiero del usuario segun analisis",
-                example = "EN_OBSERVACION",
+                example = "En_Observacion",
                 allowableValues = {"Saludable", "En observacion", "En riesgo" }
         )
         @JsonProperty("perfil_financiero")

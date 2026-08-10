@@ -222,11 +222,11 @@ def analizar_usuario(datos: EntradaUsuario):
         # E) SALIDA EN FORMATO ESTRICTO
         # ----------------------------------------------------------------------
         return {
-            "perfilFinanciero": perfil_str,
+            "perfil_financiero": perfil_str,
             "probabilidad": probabilidad,
             "nivel_endeudamiento": nivel_endeudamiento,
             "rango_ahorro": rango_ahorro_str,
-            "resumenGastos": resumen_gastos,
+            "resumen_gastos": resumen_gastos,
             "recomendaciones": recomendaciones
         }
 

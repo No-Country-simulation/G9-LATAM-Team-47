@@ -35,6 +35,9 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres-db:5432/financeai_db
       SPRING_DATASOURCE_USERNAME: postgres
       SPRING_DATASOURCE_PASSWORD: postgres
+      JWT_SECRET: 404E635266556A586E3272357538782F413F4428472B4B6250655368566D5971
+      JWT_EXPIRATION: 86400000
+
       IA_API_URL: http://modelo-financeai:8000
 
       # Entorno local

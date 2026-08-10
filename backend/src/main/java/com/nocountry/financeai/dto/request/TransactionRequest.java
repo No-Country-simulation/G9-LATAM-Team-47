@@ -30,7 +30,7 @@ public record TransactionRequest(
 
         @Schema(
                 description = "Medio de pago utilizado",
-                example = "DEBITO"
+                example = "debito"
         )
 
         @JsonProperty("medio_pago")
