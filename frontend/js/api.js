@@ -11,8 +11,7 @@ async function fetchProtected(endpoint, options = {}) {
     const token = localStorage.getItem('jwtToken');
 
     if (!token) {
-        console.warn("No hay sesión activa. Redirigiendo...");
-        window.location.href = 'index.html';
+        console.warn("No hay sesión activa");
         return null;
     }
 

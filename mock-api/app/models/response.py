@@ -1,39 +1,23 @@
 from decimal import Decimal
 from enum import Enum
-from pydantic import BaseModel, ConfigDict
+
+from pydantic import BaseModel
 
 class PerfilFinanciero(str, Enum):
     SALUDABLE = "SALUDABLE"
     EN_OBSERVACION = "EN_OBSERVACION"
     EN_RIESGO = "EN_RIESGO"
 
-class ResumenGastosResponse(BaseModel):
-    alimentacion: Decimal
-    transporte: Decimal
-    entretenimiento: Decimal
-    salud: Decimal
-    educacion: Decimal
-    servicios: Decimal
-    otros: Decimal
-
+class RangoAhorro(str, Enum):
+    ALTA = "ALTA"
+    MEDIA = "MEDIA"
+    BAJA = "BAJA"
+    NINGUNA = "NINGUNA"
 
 class AnalisisFinancieroResponse(BaseModel):
-    perfilFinanciero: PerfilFinanciero
-    probabilidad: float
-    resumenGastos: ResumenGastosResponse
+    perfil_financiero: PerfilFinanciero
+    probabilidad: Decimal
+    nivel_endeudamiento: Decimal
+    porcentaje_ahorro: RangoAhorro
+    resumen_gastos: dict[str, Decimal]
     recomendaciones: list[str]
-
-    model_config = ConfigDict(
-        json_schema_extra={
-            "example": {
-                "perfilFinanciero": "SALUDABLE",
-                "probabilidad": 0.87,
-                "resumenGastos": 0 ,
-                "recomendaciones": [
-                    "Reducir gastos en entretenimiento.",
-                    "Incrementar el ahorro mensual."
-                ]
-            }
-        }
-    )
-

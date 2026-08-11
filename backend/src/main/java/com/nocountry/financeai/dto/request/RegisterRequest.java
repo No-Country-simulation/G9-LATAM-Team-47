@@ -27,6 +27,18 @@ public record RegisterRequest(
         String apellido,
 
         @Schema(
+                description = "Documento o Identificacion del usuario",
+                example = "PEMJ920323HJCZNN0"
+        )
+        @NotBlank(message = "El documento es obligatorio")
+        @Size(
+                min = 5,
+                max = 30,
+                message = "El documento debe tener minimo 5 y 30 caracteres"
+        )
+        String documento,
+
+        @Schema(
                 description = "Email del usuario",
                 example = "carlosgomez@gmail.com"
         )
@@ -36,12 +48,16 @@ public record RegisterRequest(
 
         @Schema(
                 description = "Contraseña del usuario",
-                example = "abc123456"
+                example = "Passwd123*"
         )
         @NotBlank(message = "La contraseña no puede estar vacía")
         @Size(
                 min = 8,
                 message = "La contraseña debe tener al menos 8 caracteres"
+        )
+        @Pattern(
+                regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[@$!%*?&._-]).+$",
+                message = "La contraseña debe contener al menos una mayúscula, una minúscula, un número y un carácter especial."
         )
         String password,
 
@@ -56,14 +72,14 @@ public record RegisterRequest(
 
         @Schema(
                 description = "Sexo del usuario",
-                example = "MASCULINO"
+                example = "masculino"
         )
         @NotNull(message = "El sexo es obligatorio")
         Sexo sexo,
 
         @Schema(
                 description = "Estado civil del usuario",
-                example = "SOLTERO"
+                example = "soltero"
         )
         @JsonProperty("estado_civil")
         @NotNull(message = "El estado civil es obligatorio")

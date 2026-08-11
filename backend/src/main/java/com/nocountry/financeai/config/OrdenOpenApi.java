@@ -21,6 +21,8 @@ public class OrdenOpenApi {
                     "Perfil Financiero",
                     "Transacciones",
                     "Historial Resultado Analisis",
+                    "Usuarios",
+                    "Administradores",
                     "Test"
             );
 

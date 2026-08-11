@@ -16,7 +16,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/api/v1/perfil")
 @RequiredArgsConstructor
-@Tag(name = "Perfil Financiero", description = "Gestión del perfil financiero del usuario")
+@Tag(
+        name = "Perfil Financiero",
+        description = "Gestión del perfil financiero del usuario")
 public class PerfilFinancieroController {
     private final PerfilFinancieroService perfilFinancieroService;
 

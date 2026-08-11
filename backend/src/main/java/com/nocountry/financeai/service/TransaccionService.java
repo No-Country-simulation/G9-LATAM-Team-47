@@ -3,6 +3,7 @@ package com.nocountry.financeai.service;
 import com.nocountry.financeai.dto.request.TransactionRequest;
 import com.nocountry.financeai.dto.response.TransaccionResponse;
 import com.nocountry.financeai.entity.TransactionEntity;
+import jakarta.validation.Valid;
 
 import java.util.List;
 
@@ -17,4 +18,8 @@ public interface TransaccionService {
     List<TransaccionResponse> obtenerTransacciones();
     // Obtiene todas las transacciones de un usuario
     List<TransaccionResponse> obtenerTransaccionesPorUsuario(Long idUsuario);
+
+    TransaccionResponse actualizarTransaccion(String email, Long idTransaccion, @Valid TransactionRequest transactionRequest);
+
+    void eliminarTransaccion(String email, Long idTransaccion);
 }

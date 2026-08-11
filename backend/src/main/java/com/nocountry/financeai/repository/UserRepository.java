@@ -12,6 +12,12 @@ public interface UserRepository extends JpaRepository<UserEntity, Long> {
     // Utilizado en el Login para buscar al usuario
     Optional<UserEntity> findByEmail(String email);
 
+    // Busca usuario por documeneto de identidad
+    Optional<UserEntity> findByDocumento(String documento);
+
     // Utilizado en el Registro para evitar correos duplicados
     boolean existsByEmail(String email);
+
+    // verifica si existe un documento
+    boolean existsByDocumento(String documento);
 }

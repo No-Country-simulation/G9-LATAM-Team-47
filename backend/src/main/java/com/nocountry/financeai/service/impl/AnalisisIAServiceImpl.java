@@ -26,10 +26,10 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class AnalisisIAServiceImpl implements AnalisisIAService {
-    
+
     private final IAClient iaClient;
     private final UserRepository userRepository;
-    private final PerfilFinancieroRepository  perfilFinancieroRepository;
+    private final PerfilFinancieroRepository perfilFinancieroRepository;
     private final TransactionRepository transactionRepository;
     private final HistorialAnalisisRepository historialAnalisisRepository;
 
@@ -39,9 +39,17 @@ public class AnalisisIAServiceImpl implements AnalisisIAService {
         UserEntity usuario = userRepository
                 .findByEmail(email)
                 .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "Usuario no encontrado"
+                        new ResourceNotFoundException("Usuario no encontrado"
                         ));
+        return analizarPorUsuarioId(usuario.getId());
+    }
+
+    @Override
+    public AnalisisResponse analizarPorDocumento(String documento) {
+        UserEntity usuario = userRepository
+                .findByDocumento(documento)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Usuario no encontrado"));
         return analizarPorUsuarioId(usuario.getId());
     }
 
@@ -52,14 +60,17 @@ public class AnalisisIAServiceImpl implements AnalisisIAService {
                 .findById(usuarioId)
                 .orElseThrow(() ->
                         new ResourceNotFoundException("Usuario no encontrado"));
+
         // Calcula la edad del usuario
         Integer edad = Period.between(usuario.getFechaNacimiento(), LocalDate.now()).getYears();
+
         // Busca el perfil financiero asociado al usuario, si no tiene envia exepcion
         PerfilFinancieroEntity perfil = perfilFinancieroRepository
                 .findByUsuarioId(usuarioId)
                 .orElseThrow(() ->
                         new ResourceNotFoundException(
                                 "El usuario no tiene un perfil financiero registrado"));
+
         // Guarda las transacciones de un usuario en una lista
         List<TransactionRequest> transaccionesRequest = transactionRepository
                 .findByUsuarioId(usuarioId)
@@ -72,16 +83,7 @@ public class AnalisisIAServiceImpl implements AnalisisIAService {
         }
 
         // Teniendo tadas las variable para el analisis crea el request
-        AnalisisRequest request = new AnalisisRequest(
-                edad,
-                usuario.getSexo(),
-                usuario.getEstadoCivil(),
-                usuario.getNumeroHijos(),
-                perfil.getEmpleoFormal(),
-                perfil.getIngresoMensual(),
-                perfil.getLineaCredito(),
-                transaccionesRequest
-        );
+        AnalisisRequest request = convertirAnalisis(edad, usuario, perfil, transaccionesRequest);
 
         // Envia la peticion para hacer el analisis y guarda la respuesta
         AnalisisResponse response = iaClient.analizar(request);
@@ -92,7 +94,9 @@ public class AnalisisIAServiceImpl implements AnalisisIAService {
         return response;
     }
 
-    // metodo para convertir entidad en request
+
+    // metodos privados para convertir entidad en request
+
     private TransactionRequest convertirTransaccion(TransactionEntity entity) {
         return new TransactionRequest(
                 entity.getNombreComercio(),
@@ -101,7 +105,20 @@ public class AnalisisIAServiceImpl implements AnalisisIAService {
         );
     }
 
-    // metodo para guarda el historial en la base de datos
+    private AnalisisRequest convertirAnalisis(Integer edad, UserEntity usuario, PerfilFinancieroEntity perfil, List<TransactionRequest> transaccionRequest) {
+        return new AnalisisRequest(edad,
+                usuario.getSexo(),
+                usuario.getEstadoCivil(),
+                usuario.getNumeroHijos(),
+                perfil.getEmpleoFormal(),
+                perfil.getIngresoMensual(),
+                perfil.getLineaCredito(),
+                transaccionRequest
+        );
+    }
+
+
+    // metodo privado de la clase para guarda el historial en la base de datos
     private void guardarHistorial(UserEntity usuario, AnalisisResponse response) {
         HistorialAnalisisEntity historial = HistorialAnalisisEntity.builder()
                 .usuario(usuario)

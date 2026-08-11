@@ -9,6 +9,7 @@ import com.nocountry.financeai.repository.TransactionRepository;
 import com.nocountry.financeai.repository.UserRepository;
 import com.nocountry.financeai.service.TransaccionService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -34,7 +35,7 @@ public class TransaccionServiceImpl implements TransaccionService {
         TransactionEntity transaccion = TransactionEntity.builder()
                         .nombreComercio(transactionRequest.nombreComercio())
                         .montoTransaccion(transactionRequest.montoTransaccion())
-                        .medioPago(transactionRequest.mediopago())
+                        .medioPago(transactionRequest.medioPago())
                         .usuario(usuario)
                         .fecha(LocalDateTime.now())
                         .build();
@@ -59,13 +60,13 @@ public class TransaccionServiceImpl implements TransaccionService {
     }
 
     @Override
-    public TransaccionResponse crearTransaccion(Long usuarioId, TransactionRequest transactionRequest) {
+    public TransaccionResponse crearTransaccion(Long usuarioId, TransactionRequest request) {
         UserEntity usuario = userRepository.findById(usuarioId).orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
 
         TransactionEntity transaccion = TransactionEntity.builder()
-                .nombreComercio(transactionRequest.nombreComercio())
-                .montoTransaccion(transactionRequest.montoTransaccion())
-                .medioPago(transactionRequest.mediopago())
+                .nombreComercio(request.nombreComercio())
+                .montoTransaccion(request.montoTransaccion())
+                .medioPago(request.medioPago())
                 .usuario(usuario)
                 .fecha(LocalDateTime.now())
                 .build();
@@ -86,6 +87,43 @@ public class TransaccionServiceImpl implements TransaccionService {
                 .stream()
                 .map(this::convertirRespuesta)
                 .toList();
+    }
+
+    @Override
+    public TransaccionResponse actualizarTransaccion(String email, Long idTransaccion, TransactionRequest request) {
+
+        TransactionEntity transaccion = transactionRepository.findById(idTransaccion)
+                .orElseThrow(()-> new ResourceNotFoundException("Transaccion no encontrada"));
+
+        if(!transaccion.getUsuario().getEmail().equals(email)) {
+            throw new AccessDeniedException("No tienes permiso para modificar esta transaccion");
+        }
+
+        if(request.nombreComercio() != null){
+            transaccion.setNombreComercio(request.nombreComercio());
+        }
+
+        if(request.montoTransaccion() != null){
+            transaccion.setMontoTransaccion(request.montoTransaccion());
+        }
+
+        if(request.medioPago() != null){
+            transaccion.setMedioPago(request.medioPago());
+        }
+
+        TransactionEntity transaccionActualizada = transactionRepository.save(transaccion);
+        return convertirRespuesta(transaccionActualizada);
+    }
+
+    @Override
+    public void eliminarTransaccion(String email, Long idTransaccion) {
+        TransactionEntity transaccion = transactionRepository.findById(idTransaccion)
+                .orElseThrow(()-> new ResourceNotFoundException("Transaccion no encontrada"));
+
+        if(!transaccion.getUsuario().getEmail().equals(email)) {
+            throw new  AccessDeniedException("Transaccion no pertenece al usuario");
+        }
+        transactionRepository.delete(transaccion);
     }
 
     public List<TransaccionResponse> obtenerTransacciones() {
