@@ -341,11 +341,11 @@ Estatus general (05 de agosto de 2026): el equipo avanzó sustancialmente en seg
 
 ### Sprint de Estabilización v2 (bloqueante, antes de nuevas features)
 Objetivo: cerrar los hallazgos de severidad Alta que siguen abiertos o son nuevos (AUD-01, 02, 03, 09, 13, 14, 15, 16) antes de intentar una demo end-to-end. Corresponde al grupo P0/P1 del backlog (Sección 10).
-* 🔴 Corregir AuthResponse (AUD-01 / TASK-001) — arrastrado de la v1, sigue sin resolver.
-* 🔴 Restaurar application.yml real (AUD-09 / TASK-010) — regresión, prioridad alta por su bajo costo.
-* 🔴 Eliminar jwt.secret hardcodeado (AUD-13 / TASK-009) — arrastrado de la v1.
-* 🔴 Crear dashboard.html y reordenar scripts (AUD-18 / TASK-030) — nuevo, bloquea toda navegación post-login.
-* 🔴 Nueva migración V5 para alinear historial_analisis (AUD-14 / TASK-026) — nuevo, bloquea la persistencia de análisis.
+* ✅ Corregir AuthResponse (AUD-01 / TASK-001) — arrastrado de la v1, sigue sin resolver.
+* ✅ Restaurar application.yml real (AUD-09 / TASK-010) — regresión, prioridad alta por su bajo costo.
+* ✅ Eliminar jwt.secret hardcodeado (AUD-13 / TASK-009) — arrastrado de la v1.
+* ✅ Crear dashboard.html y reordenar scripts (AUD-18 / TASK-030) — nuevo, bloquea toda navegación post-login.
+* ✅ Nueva migración V5 para alinear historial_analisis (AUD-14 / TASK-026) — nuevo, bloquea la persistencia de análisis.
 * 🔴 Alinear host/puerto/ruta del motor de IA (AUD-15 / TASK-027) — nuevo.
 * 🔴 Alinear contrato de respuesta del motor de IA (AUD-16 / TASK-028) — nuevo.
 * 🔴 Unificar el valor del enum de perfil de riesgo (AUD-02 / TASK-002) — arrastrado, requiere inspeccionar el modelo .pkl.
@@ -398,7 +398,7 @@ Se conservan los identificadores TASK-001 a TASK-025 de la v1 (con su estado act
 | TASK-009 | ✅ Externalizar jwt.secret y eliminar el fallback hardcodeado | AUD-13 | La aplicación falla rápido si jwt.secret no está definido en el entorno. |
 | TASK-010 | ✅ Restaurar application.yml del backend (revertir el contenido de docker-compose pegado por error) | AUD-09 | El backend arranca localmente usando application.yml + variables de entorno, sin depender de una plantilla accidental. |
 | TASK-026 | ✅ Migración V5: alinear esquema de historial_analisis con la entidad JPA | AUD-14 | Un análisis se persiste sin error SQL; rango_ahorro y nivel_endeudamiento tienen el tipo y nombre correctos en BD. |
-| TASK-030 | 🔴 Crear dashboard.html real y reordenar la carga de scripts | AUD-18 | Tras un login exitoso, el usuario llega a una página real que carga dashboard.js y api.js correctamente. |
+| TASK-030 | ✅ Crear dashboard.html real y reordenar la carga de scripts | AUD-18 | Tras un login exitoso, el usuario llega a una página real que carga dashboard.js y api.js correctamente. |
 
 ### P1 — Conectar el Motor de IA Real
 | ID | Título | Ref. | Criterio de aceptación |
@@ -423,7 +423,7 @@ Se conservan los identificadores TASK-001 a TASK-025 de la v1 (con su estado act
 | TASK-011 | 🔴 Aplicar spring.jpa.open-in-view=false | AUD-11 | Aplicable recién después de TASK-010 (application.yml restaurado); los tests de integración siguen pasando. |
 | TASK-013 | 🔴 Suite de pruebas de integración de Auth (colección versionada en el repo) | Slice 1 | Registro exitoso, registro duplicado (400), login exitoso y login inválido (401) cubiertos y documentados. |
 | TASK-020 | 🟡 Completar resiliencia ante caída del motor de IA (ya existe el manejo de ResourceAccessException → 503) | Slice 3 | Se agregan tests que cubran explícitamente el escenario de caída del servicio de IA. |
-| TASK-032 | 🔴 Corregir typo Sexo.FEMININO → FEMENINO | AUD-20 | El enum usa la ortografía correcta; se confirma con Data Science que no rompe el encoding del modelo entrenado. |
+| TASK-032 | ✅ Corregir typo Sexo.FEMININO → FEMENINO | AUD-20 | El enum usa la ortografía correcta; se confirma con Data Science que no rompe el encoding del modelo entrenado. |
 | TASK-033 | ✅ Corregir <coniguration> en pom.xml | AUD-21 | mvn clean package procesa Lombok correctamente con el bloque de configuración corregido. |
 
 ### P4 — Infraestructura y Cierre (Semana 5, sin cambios de fondo)
