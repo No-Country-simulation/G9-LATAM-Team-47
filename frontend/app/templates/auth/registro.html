@@ -1,0 +1,11 @@
+{% extends 'base.html' %}{% block title %}Registro | FinanceAI{% endblock %}{% block content %}
+<div class="card p-4"><h1 class="h3">Crear cuenta y perfil</h1><form method="post" class="row g-3">
+{% for name,label,type in [('nombre','Nombre','text'),('apellido','Apellido','text'),('documento','Documento','text'),('email','Correo','email'),('password','Contraseña','password'),('fecha_nacimiento','Fecha de nacimiento','date')] %}
+<div class="col-md-6"><label class="form-label">{{ label }}</label><input class="form-control" name="{{ name }}" type="{{ type }}" required></div>{% endfor %}
+<div class="col-md-4"><label class="form-label">Sexo</label><select class="form-select" name="sexo" required><option value="M">Masculino</option><option value="F">Femenino</option></select></div>
+<div class="col-md-4"><label class="form-label">Estado civil</label><select class="form-select" name="estado_civil" required>{% for x in ['SOLTERO','CASADO','DIVORCIADO','VIUDO'] %}<option>{{ x }}</option>{% endfor %}</select></div>
+<div class="col-md-4"><label class="form-label">Número de hijos</label><input class="form-control" type="number" min="0" name="numero_hijos" value="0" required></div>
+<div class="col-md-4"><label class="form-label">Empleo formal</label><select class="form-select" name="empleo_formal"><option value="1">Sí</option><option value="0">No</option></select></div>
+<div class="col-md-4"><label class="form-label">Ingreso mensual</label><input class="form-control" type="number" min="0.01" step="0.01" name="ingreso_mensual" required></div>
+<div class="col-md-4"><label class="form-label">Línea de crédito</label><input class="form-control" type="number" min="0" step="0.01" name="linea_credito" required></div>
+<div class="col-12"><button class="btn btn-primary">Crear cuenta</button></div></form></div>{% endblock %}
