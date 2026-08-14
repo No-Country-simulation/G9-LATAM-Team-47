@@ -13,15 +13,6 @@ services:
     networks:
       - financeai-net
 
-  # Mock obsoleto desplazado al puerto 8001
-  mock-api:
-    build: ./mock-api
-    container_name: financeai_mock_api
-    ports:
-      - "8001:8001"
-    networks:
-      - financeai-net
-
   # Nuevo motor de IA real (Canónico)
   modelo-financeai:
     build: ./data-science/modeloFinanceAI
