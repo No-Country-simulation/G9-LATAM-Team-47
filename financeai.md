@@ -162,21 +162,8 @@ data-science/
     modelo_clasificacion_transacciones.pkl
     modelo_perfil_financiero.pkl
     requirements.txt
-  main.py
-  modelo_clasificacion_transacciones.pkl
-  modelo_perfil_financiero.pkl
   README.md
-  requirements.txt
 frontend/
-  css/
-    style.css
-  js/
-    api.js
-    auth.js
-    dashboard.js
-  dashboard.html
-  index.html
-frontend-flask/
   app/
     routes/
       __init__.py
@@ -238,705 +225,6 @@ This section contains the contents of the repository's files.
 
 <file path="backend/src/main/java/com/nocountry/financeai/entity/.gitkeep">
 
-</file>
-
-<file path="frontend-flask/app/routes/__init__.py">
-
-</file>
-
-<file path="frontend-flask/app/routes/analisis.py">
-from flask import Blueprint, flash, redirect, render_template, url_for
-from ..decorators import login_required
-from ..services.exceptions import FinanceAIError
-from ..services.financeai_api import api
-
-analisis_bp = Blueprint("analisis", __name__, url_prefix="/analisis")
-
-
-@analisis_bp.post("/generar")
-@login_required
-def generate():
-    try:
-        result = api.request_analysis()
-        return render_template("analisis/resultado.html", result=result)
-    except FinanceAIError as error:
-        flash(f"El análisis no pudo completarse: {error}", "danger")
-        return redirect(url_for("dashboard.index"))
-</file>
-
-<file path="frontend-flask/app/routes/auth.py">
-from urllib.parse import urlparse
-from flask import Blueprint, flash, redirect, render_template, request, session, url_for
-from ..services.exceptions import ConflictError, FinanceAIError, ValidationError
-from ..services.financeai_api import api
-
-auth_bp = Blueprint("auth", __name__)
-
-
-def _safe_next(target):
-    parsed = urlparse(target or "")
-    return bool(target and target.startswith("/") and not parsed.scheme and not parsed.netloc)
-
-
-@auth_bp.route("/", methods=["GET", "POST"])
-@auth_bp.route("/login", methods=["GET", "POST"])
-def login():
-    if session.get("access_token"):
-        return redirect(url_for("dashboard.index"))
-    if request.method == "POST":
-        try:
-            data = api.login({"email": request.form.get("email", "").strip(), "password": request.form.get("password", "")})
-            token = (data or {}).get("token")
-            if not token:
-                raise ValidationError("El backend no devolvió un token válido.", 502)
-            session.clear()
-            session["access_token"] = token
-            session.permanent = True
-            flash((data or {}).get("message", "Sesión iniciada correctamente."), "success")
-            target = request.args.get("next")
-            return redirect(target if _safe_next(target) else url_for("dashboard.index"))
-        except FinanceAIError as error:
-            flash(str(error), "danger")
-    return render_template("auth/login.html")
-
-
-@auth_bp.route("/registro", methods=["GET", "POST"])
-def register():
-    if request.method == "POST":
-        user_payload = {
-            "nombre": request.form.get("nombre", "").strip(),
-            "apellido": request.form.get("apellido", "").strip(),
-            "documento": request.form.get("documento", "").strip(),
-            "email": request.form.get("email", "").strip(),
-            "password": request.form.get("password", ""),
-            "fecha_nacimiento": request.form.get("fecha_nacimiento", ""),
-            "sexo": request.form.get("sexo", ""),
-            "estado_civil": request.form.get("estado_civil", ""),
-            "numero_hijos": int(request.form.get("numero_hijos") or 0),
-        }
-        profile_payload = {
-            "empleo_formal": int(request.form.get("empleo_formal") or 0),
-            "ingreso_mensual": request.form.get("ingreso_mensual", ""),
-            "linea_credito": request.form.get("linea_credito", ""),
-        }
-        try:
-            data = api.register(user_payload)
-            token = (data or {}).get("token")
-            if not token:
-                raise ValidationError("El registro no devolvió un token válido.", 502)
-            session.clear()
-            session["access_token"] = token
-            session.permanent = True
-            try:
-                api.create_profile(profile_payload)
-            except ConflictError:
-                pass
-            flash("Cuenta y perfil creados correctamente.", "success")
-            return redirect(url_for("dashboard.index"))
-        except FinanceAIError as error:
-            flash(str(error), "danger")
-    return render_template("auth/registro.html")
-
-
-@auth_bp.post("/logout")
-def logout():
-    session.clear()
-    flash("Sesión cerrada correctamente.", "success")
-    return redirect(url_for("auth.login"))
-</file>
-
-<file path="frontend-flask/app/routes/dashboard.py">
-from flask import Blueprint, render_template
-from ..decorators import login_required
-from ..services.exceptions import FinanceAIError
-from ..services.financeai_api import api
-
-dashboard_bp = Blueprint("dashboard", __name__, url_prefix="/dashboard")
-
-
-@dashboard_bp.get("/")
-@login_required
-def index():
-    transactions, warning = [], None
-    try:
-        transactions = api.list_transactions()
-    except FinanceAIError as error:
-        warning = str(error)
-    total = sum(float(item.get("monto_transaccion") or 0) for item in transactions)
-    return render_template("dashboard/index.html", transactions=transactions[:5], total=total, warning=warning)
-</file>
-
-<file path="frontend-flask/app/routes/historial.py">
-from flask import Blueprint, render_template
-from ..decorators import login_required
-from ..services.financeai_api import api
-
-historial_bp = Blueprint("historial", __name__, url_prefix="/historial")
-
-
-@historial_bp.get("/")
-@login_required
-def index():
-    return render_template("historial/index.html", items=api.list_history())
-</file>
-
-<file path="frontend-flask/app/routes/transacciones.py">
-from flask import Blueprint, flash, redirect, render_template, request, url_for
-from ..decorators import login_required
-from ..services.exceptions import FinanceAIError
-from ..services.financeai_api import api
-
-transacciones_bp = Blueprint("transacciones", __name__, url_prefix="/transacciones")
-
-
-@transacciones_bp.get("/")
-@login_required
-def index():
-    return render_template("transacciones/lista.html", transactions=api.list_transactions())
-
-
-@transacciones_bp.route("/nueva", methods=["GET", "POST"])
-@login_required
-def create():
-    if request.method == "POST":
-        payload = {
-            "nombre_comercio": request.form.get("nombre_comercio", "").strip(),
-            "monto_transaccion": request.form.get("monto_transaccion", ""),
-            "medio_pago": request.form.get("medio_pago", ""),
-        }
-        try:
-            api.create_transaction(payload)
-            flash("Transacción registrada correctamente.", "success")
-            return redirect(url_for("transacciones.index"))
-        except FinanceAIError as error:
-            flash(str(error), "danger")
-    return render_template("transacciones/formulario.html")
-</file>
-
-<file path="frontend-flask/app/services/__init__.py">
-
-</file>
-
-<file path="frontend-flask/app/services/exceptions.py">
-class FinanceAIError(Exception):
-    def __init__(self, message, status_code=None, details=None):
-        super().__init__(message)
-        self.status_code = status_code
-        self.details = details
-
-
-class AuthenticationError(FinanceAIError):
-    pass
-
-
-class AuthorizationError(FinanceAIError):
-    pass
-
-
-class ValidationError(FinanceAIError):
-    pass
-
-
-class ConflictError(FinanceAIError):
-    pass
-
-
-class ResourceNotFoundError(FinanceAIError):
-    pass
-
-
-class BackendUnavailableError(FinanceAIError):
-    pass
-
-
-class BackendError(FinanceAIError):
-    pass
-</file>
-
-<file path="frontend-flask/app/services/financeai_api.py">
-import requests
-from flask import current_app, session
-from .exceptions import (
-    AuthenticationError, AuthorizationError, BackendError,
-    BackendUnavailableError, ConflictError, ResourceNotFoundError,
-    ValidationError,
-)
-
-
-class FinanceAIAPI:
-    def _headers(self, authenticated=True):
-        headers = {"Accept": "application/json", "Content-Type": "application/json"}
-        if authenticated:
-            token = session.get("access_token")
-            if not token:
-                raise AuthenticationError("Tu sesión no está activa.", 401)
-            headers["Authorization"] = f"Bearer {token}"
-        return headers
-
-    @staticmethod
-    def _message(response):
-        try:
-            body = response.json()
-        except ValueError:
-            return "El servicio devolvió una respuesta no válida."
-        if isinstance(body, dict):
-            return body.get("message") or body.get("detail") or body.get("error") or "La solicitud no pudo completarse."
-        return "La solicitud no pudo completarse."
-
-    def request(self, method, endpoint, *, authenticated=True, json=None, params=None):
-        try:
-            response = requests.request(
-                method,
-                f'{current_app.config["BACKEND_API_URL"]}{endpoint}',
-                headers=self._headers(authenticated),
-                json=json,
-                params=params,
-                timeout=current_app.config["REQUEST_TIMEOUT"],
-            )
-        except (requests.Timeout, requests.ConnectionError) as exc:
-            raise BackendUnavailableError("FinanceAI no está disponible temporalmente.", 503) from exc
-        except requests.RequestException as exc:
-            raise BackendError("No fue posible completar la solicitud.", 502) from exc
-
-        message = self._message(response)
-        if response.status_code == 401:
-            session.clear()
-            raise AuthenticationError("Tu sesión expiró o el token no es válido.", 401)
-        if response.status_code == 403:
-            raise AuthorizationError("No tienes permisos para realizar esta operación.", 403)
-        if response.status_code == 400:
-            raise ValidationError(message, 400)
-        if response.status_code == 404:
-            raise ResourceNotFoundError(message, 404)
-        if response.status_code == 409:
-            raise ConflictError(message, 409)
-        if response.status_code >= 500:
-            raise BackendError(message, response.status_code)
-        if not response.ok:
-            raise BackendError(message, response.status_code)
-        if response.status_code == 204 or not response.content:
-            return None
-        try:
-            return response.json()
-        except ValueError as exc:
-            raise BackendError("El backend devolvió JSON no válido.", 502) from exc
-
-    def register(self, payload):
-        return self.request("POST", "/auth/register", authenticated=False, json=payload)
-
-    def login(self, payload):
-        return self.request("POST", "/auth/login", authenticated=False, json=payload)
-
-    def create_profile(self, payload):
-        return self.request("POST", "/perfil", json=payload)
-
-    def list_transactions(self):
-        data = self.request("GET", "/transacciones/usuario/transacciones")
-        return [normalize_transaction(x) for x in (data or [])]
-
-    def create_transaction(self, payload):
-        return normalize_transaction(self.request("POST", "/transacciones/usuario/transacciones", json=payload))
-
-    def request_analysis(self):
-        return normalize_analysis(self.request("POST", "/analisis/predict"))
-
-    def list_history(self):
-        data = self.request("GET", "/analisis/usuario/historial")
-        return [normalize_analysis(x) for x in (data or [])]
-
-
-def _pick(data, *keys, default=None):
-    if not isinstance(data, dict):
-        return default
-    for key in keys:
-        if key in data:
-            return data[key]
-    return default
-
-
-def normalize_transaction(data):
-    return {
-        "nombre_comercio": _pick(data, "nombre_comercio", "nombreComercio", default=""),
-        "monto_transaccion": _pick(data, "monto_transaccion", "montoTransaccion", default=0),
-        "medio_pago": _pick(data, "medio_pago", "medioPago", default=""),
-        "fecha": _pick(data, "fecha", default=""),
-    }
-
-
-def normalize_analysis(data):
-    data = data or {}
-    return {
-        "id": _pick(data, "id"),
-        "perfil_financiero": _pick(data, "perfil_financiero", "perfilFinanciero", default="SIN_DATOS"),
-        "probabilidad": _pick(data, "probabilidad"),
-        "nivel_endeudamiento": _pick(data, "nivel_endeudamiento", "nivelEndeudamiento"),
-        "rango_ahorro": _pick(data, "rango_ahorro", "rangoAhorro", "porcentaje_ahorro", default=""),
-        "resumen_gastos": _pick(data, "resumen_gastos", "resumenGastos", default={}) or {},
-        "recomendaciones": _pick(data, "recomendaciones", default=[]) or [],
-    }
-
-
-api = FinanceAIAPI()
-</file>
-
-<file path="frontend-flask/app/static/css/style.css">
-body{background:#f5f7fb}.card{border:0;box-shadow:0 .25rem 1rem rgba(28,39,49,.08);border-radius:1rem}.auth-card,.form-card{max-width:34rem}.navbar{background:linear-gradient(90deg,#0d6efd,#1746a2)!important}
-</file>
-
-<file path="frontend-flask/app/static/js/main.js">
-document.querySelectorAll('form').forEach(form => form.addEventListener('submit', () => { const button=form.querySelector('button[type="submit"],button:not([type])'); if(button){button.disabled=true;} }));
-</file>
-
-<file path="frontend-flask/app/templates/analisis/resultado.html">
-{% extends 'base.html' %}{% block content %}<h1>Resultado del análisis</h1><div class="row g-3"><div class="col-md-4"><div class="card p-3"><span>Perfil</span><strong>{{ result.perfil_financiero }}</strong></div></div><div class="col-md-4"><div class="card p-3"><span>Probabilidad</span><strong>{{ result.probabilidad or 'N/D' }}</strong></div></div><div class="col-md-4"><div class="card p-3"><span>Ahorro</span><strong>{{ result.rango_ahorro or 'N/D' }}</strong></div></div></div><div class="card p-3 mt-3"><h2 class="h5">Resumen de gastos</h2><ul>{% for category, amount in result.resumen_gastos.items() %}<li>{{ category|title }}: ${{ amount }}</li>{% else %}<li>Sin datos</li>{% endfor %}</ul><h2 class="h5">Recomendaciones</h2><ul>{% for item in result.recomendaciones %}<li>{{ item }}</li>{% else %}<li>Sin recomendaciones</li>{% endfor %}</ul></div>{% endblock %}
-</file>
-
-<file path="frontend-flask/app/templates/auth/login.html">
-{% extends 'base.html' %}{% block title %}Iniciar sesión | FinanceAI{% endblock %}{% block content %}
-<div class="auth-card card p-4 mx-auto"><h1 class="h3 mb-3">Iniciar sesión</h1>
-<form method="post"><div class="mb-3"><label class="form-label">Correo</label><input class="form-control" type="email" name="email" required></div>
-<div class="mb-3"><label class="form-label">Contraseña</label><input class="form-control" type="password" name="password" required></div>
-<button class="btn btn-primary w-100">Entrar</button></form><p class="mt-3 mb-0">¿No tienes cuenta? <a href="{{ url_for('auth.register') }}">Regístrate</a></p></div>
-{% endblock %}
-</file>
-
-<file path="frontend-flask/app/templates/auth/registro.html">
-{% extends 'base.html' %}{% block title %}Registro | FinanceAI{% endblock %}{% block content %}
-<div class="card p-4"><h1 class="h3">Crear cuenta y perfil</h1><form method="post" class="row g-3">
-{% for name,label,type in [('nombre','Nombre','text'),('apellido','Apellido','text'),('documento','Documento','text'),('email','Correo','email'),('password','Contraseña','password'),('fecha_nacimiento','Fecha de nacimiento','date')] %}
-<div class="col-md-6"><label class="form-label">{{ label }}</label><input class="form-control" name="{{ name }}" type="{{ type }}" required></div>{% endfor %}
-<div class="col-md-4"><label class="form-label">Sexo</label><select class="form-select" name="sexo" required><option value="M">Masculino</option><option value="F">Femenino</option></select></div>
-<div class="col-md-4"><label class="form-label">Estado civil</label><select class="form-select" name="estado_civil" required>{% for x in ['SOLTERO','CASADO','DIVORCIADO','VIUDO'] %}<option>{{ x }}</option>{% endfor %}</select></div>
-<div class="col-md-4"><label class="form-label">Número de hijos</label><input class="form-control" type="number" min="0" name="numero_hijos" value="0" required></div>
-<div class="col-md-4"><label class="form-label">Empleo formal</label><select class="form-select" name="empleo_formal"><option value="1">Sí</option><option value="0">No</option></select></div>
-<div class="col-md-4"><label class="form-label">Ingreso mensual</label><input class="form-control" type="number" min="0.01" step="0.01" name="ingreso_mensual" required></div>
-<div class="col-md-4"><label class="form-label">Línea de crédito</label><input class="form-control" type="number" min="0" step="0.01" name="linea_credito" required></div>
-<div class="col-12"><button class="btn btn-primary">Crear cuenta</button></div></form></div>{% endblock %}
-</file>
-
-<file path="frontend-flask/app/templates/dashboard/index.html">
-{% extends 'base.html' %}{% block content %}<div class="d-flex justify-content-between align-items-center mb-4"><div><h1>Dashboard</h1><p class="text-muted mb-0">Resumen de tu actividad financiera</p></div><form method="post" action="{{ url_for('analisis.generate') }}"><button class="btn btn-success">Generar análisis</button></form></div>
-{% if warning %}<div class="alert alert-warning">{{ warning }}</div>{% endif %}<div class="row g-3 mb-4"><div class="col-md-6"><div class="card p-3"><span class="text-muted">Transacciones</span><strong class="display-6">{{ transactions|length }}</strong></div></div><div class="col-md-6"><div class="card p-3"><span class="text-muted">Monto mostrado</span><strong class="display-6">${{ '%.2f'|format(total) }}</strong></div></div></div>
-<div class="card p-3"><div class="d-flex justify-content-between"><h2 class="h5">Últimas transacciones</h2><a href="{{ url_for('transacciones.create') }}">Nueva</a></div>{% include 'transacciones/_tabla.html' %}</div>{% endblock %}
-</file>
-
-<file path="frontend-flask/app/templates/errors/error.html">
-{% extends 'base.html' %}{% block content %}<div class="text-center py-5"><div class="display-1 fw-bold text-primary">{{ code }}</div><h1>{{ title }}</h1><p class="text-muted">{{ message }}</p><a class="btn btn-primary" href="{{ url_for('dashboard.index') if session.get('access_token') else url_for('auth.login') }}">Continuar</a></div>{% endblock %}
-</file>
-
-<file path="frontend-flask/app/templates/historial/index.html">
-{% extends 'base.html' %}{% block content %}<h1>Historial de análisis</h1>{% for item in items %}<div class="card p-3 mb-3"><div class="d-flex justify-content-between"><strong>{{ item.perfil_financiero }}</strong><span>{{ item.probabilidad or 'N/D' }}</span></div><ul class="mt-2 mb-0">{% for recommendation in item.recomendaciones %}<li>{{ recommendation }}</li>{% endfor %}</ul></div>{% else %}<div class="alert alert-info">Todavía no hay análisis guardados.</div>{% endfor %}{% endblock %}
-</file>
-
-<file path="frontend-flask/app/templates/transacciones/_tabla.html">
-{% if transactions %}<div class="table-responsive"><table class="table"><thead><tr><th>Comercio</th><th>Monto</th><th>Medio</th><th>Fecha</th></tr></thead><tbody>{% for tx in transactions %}<tr><td>{{ tx.nombre_comercio }}</td><td>${{ tx.monto_transaccion }}</td><td>{{ tx.medio_pago }}</td><td>{{ tx.fecha }}</td></tr>{% endfor %}</tbody></table></div>{% else %}<p class="text-muted my-3">No hay transacciones registradas.</p>{% endif %}
-</file>
-
-<file path="frontend-flask/app/templates/transacciones/formulario.html">
-{% extends 'base.html' %}{% block content %}<div class="card p-4 mx-auto form-card"><h1 class="h3">Nueva transacción</h1><form method="post"><div class="mb-3"><label class="form-label">Comercio</label><input class="form-control" name="nombre_comercio" required></div><div class="mb-3"><label class="form-label">Monto</label><input class="form-control" type="number" min="0.01" step="0.01" name="monto_transaccion" required></div><div class="mb-3"><label class="form-label">Medio de pago</label><select class="form-select" name="medio_pago">{% for x in ['EFECTIVO','DEBITO','CREDITO','TRANSFERENCIA'] %}<option>{{ x }}</option>{% endfor %}</select></div><button class="btn btn-primary">Guardar</button></form></div>{% endblock %}
-</file>
-
-<file path="frontend-flask/app/templates/transacciones/lista.html">
-{% extends 'base.html' %}{% block content %}<div class="d-flex justify-content-between"><h1>Transacciones</h1><a class="btn btn-primary" href="{{ url_for('transacciones.create') }}">Nueva transacción</a></div><div class="card p-3 mt-3">{% include 'transacciones/_tabla.html' %}</div>{% endblock %}
-</file>
-
-<file path="frontend-flask/app/templates/base.html">
-<!doctype html>
-<html lang="es">
-<head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>{% block title %}FinanceAI{% endblock %}</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
-</head>
-<body>
-<nav class="navbar navbar-expand-lg navbar-dark bg-primary"><div class="container">
-  <a class="navbar-brand fw-bold" href="{{ url_for('dashboard.index') }}">FinanceAI</a>
-  {% if session.get('access_token') %}<div class="d-flex gap-2">
-    <a class="btn btn-sm btn-outline-light" href="{{ url_for('transacciones.index') }}">Transacciones</a>
-    <a class="btn btn-sm btn-outline-light" href="{{ url_for('historial.index') }}">Historial</a>
-    <form method="post" action="{{ url_for('auth.logout') }}"><button class="btn btn-sm btn-light">Salir</button></form>
-  </div>{% endif %}
-</div></nav>
-<main class="container py-4">
-{% for category, message in get_flashed_messages(with_categories=true) %}
-<div class="alert alert-{{ category }} alert-dismissible fade show">{{ message }}<button class="btn-close" data-bs-dismiss="alert"></button></div>
-{% endfor %}
-{% block content %}{% endblock %}
-</main>
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-</body></html>
-</file>
-
-<file path="frontend-flask/app/__init__.py">
-from flask import Flask
-from .config import Config
-from .errors import register_error_handlers
-
-
-def create_app(config_object=Config):
-    app = Flask(__name__)
-    app.config.from_object(config_object)
-
-    if not app.config.get("SECRET_KEY"):
-        raise RuntimeError("FLASK_SECRET_KEY es obligatoria")
-
-    from .routes.auth import auth_bp
-    from .routes.dashboard import dashboard_bp
-    from .routes.transacciones import transacciones_bp
-    from .routes.analisis import analisis_bp
-    from .routes.historial import historial_bp
-
-    app.register_blueprint(auth_bp)
-    app.register_blueprint(dashboard_bp)
-    app.register_blueprint(transacciones_bp)
-    app.register_blueprint(analisis_bp)
-    app.register_blueprint(historial_bp)
-    register_error_handlers(app)
-    return app
-</file>
-
-<file path="frontend-flask/app/config.py">
-import os
-from datetime import timedelta
-
-
-def _as_bool(value: str | None, default=False):
-    if value is None:
-        return default
-    return value.strip().lower() in {"1", "true", "yes", "on"}
-
-
-class Config:
-    SECRET_KEY = os.getenv("FLASK_SECRET_KEY")
-    BACKEND_API_URL = os.getenv("BACKEND_API_URL", "http://localhost:8080/api/v1").rstrip("/")
-    REQUEST_TIMEOUT = float(os.getenv("REQUEST_TIMEOUT", "10"))
-    SESSION_COOKIE_HTTPONLY = True
-    SESSION_COOKIE_SAMESITE = "Lax"
-    SESSION_COOKIE_SECURE = _as_bool(os.getenv("SESSION_COOKIE_SECURE"), False)
-    PERMANENT_SESSION_LIFETIME = timedelta(hours=8)
-    WTF_CSRF_TIME_LIMIT = timedelta(hours=8)
-    DEBUG = _as_bool(os.getenv("FLASK_DEBUG"), False)
-</file>
-
-<file path="frontend-flask/app/decorators.py">
-from functools import wraps
-from flask import flash, redirect, request, session, url_for
-
-
-def login_required(view):
-    @wraps(view)
-    def wrapped(*args, **kwargs):
-        if not session.get("access_token"):
-            flash("Tu sesión no está activa. Inicia sesión para continuar.", "warning")
-            return redirect(url_for("auth.login", next=request.path))
-        return view(*args, **kwargs)
-    return wrapped
-</file>
-
-<file path="frontend-flask/app/errors.py">
-from flask import flash, redirect, render_template, request, session, url_for
-from .services.exceptions import AuthenticationError, AuthorizationError, BackendError, BackendUnavailableError
-
-
-def register_error_handlers(app):
-    @app.errorhandler(AuthenticationError)
-    def authentication_error(error):
-        session.clear()
-        flash(str(error), "warning")
-        return redirect(url_for("auth.login", next=request.path))
-
-    @app.errorhandler(AuthorizationError)
-    def authorization_error(error):
-        return render_template("errors/error.html", code=403, title="Acceso denegado", message=str(error)), 403
-
-    @app.errorhandler(BackendUnavailableError)
-    def unavailable_error(error):
-        return render_template("errors/error.html", code=503, title="Servicio no disponible", message=str(error)), 503
-
-    @app.errorhandler(BackendError)
-    def backend_error(error):
-        code = error.status_code if error.status_code and 500 <= error.status_code <= 599 else 502
-        return render_template("errors/error.html", code=code, title="Error del servicio", message="No fue posible completar la operación."), code
-
-    @app.errorhandler(404)
-    def not_found(_error):
-        return render_template("errors/error.html", code=404, title="Página no encontrada", message="La página solicitada no existe."), 404
-
-    @app.errorhandler(500)
-    def internal_error(_error):
-        return render_template("errors/error.html", code=500, title="Error interno", message="Ocurrió un error inesperado."), 500
-</file>
-
-<file path="frontend-flask/tests/conftest.py">
-import pytest
-from app import create_app
-
-
-class TestConfig:
-    TESTING = True
-    SECRET_KEY = "test-secret"
-    BACKEND_API_URL = "http://backend.test/api/v1"
-    REQUEST_TIMEOUT = 1
-    SESSION_COOKIE_HTTPONLY = True
-    SESSION_COOKIE_SAMESITE = "Lax"
-    SESSION_COOKIE_SECURE = False
-    WTF_CSRF_ENABLED = False
-
-
-@pytest.fixture
-def app():
-    return create_app(TestConfig)
-
-
-@pytest.fixture
-def client(app):
-    return app.test_client()
-</file>
-
-<file path="frontend-flask/tests/test_normalizers.py">
-from app.services.financeai_api import normalize_analysis, normalize_transaction
-
-
-def test_transaction_accepts_camel_case():
-    value = normalize_transaction({"nombreComercio": "Tienda", "montoTransaccion": 10, "medioPago": "EFECTIVO"})
-    assert value["nombre_comercio"] == "Tienda"
-    assert value["monto_transaccion"] == 10
-
-
-def test_analysis_accepts_both_contracts():
-    value = normalize_analysis({"perfilFinanciero": "SALUDABLE", "resumenGastos": {"salud": 20}})
-    assert value["perfil_financiero"] == "SALUDABLE"
-    assert value["resumen_gastos"]["salud"] == 20
-</file>
-
-<file path="frontend-flask/tests/test_session.py">
-from unittest.mock import patch
-from app.services.exceptions import AuthenticationError
-
-
-def test_protected_page_redirects_without_session(client):
-    response = client.get("/dashboard/")
-    assert response.status_code == 302
-    assert "/login" in response.headers["Location"]
-
-
-def test_login_saves_token(client):
-    with patch("app.routes.auth.api.login", return_value={"token": "jwt-test", "message": "ok"}):
-        response = client.post("/login", data={"email": "user@example.com", "password": "secret"})
-    assert response.status_code == 302
-    with client.session_transaction() as session:
-        assert session["access_token"] == "jwt-test"
-
-
-def test_logout_clears_session(client):
-    with client.session_transaction() as session:
-        session["access_token"] = "jwt-test"
-    response = client.post("/logout")
-    assert response.status_code == 302
-    with client.session_transaction() as session:
-        assert "access_token" not in session
-
-
-def test_401_handler_clears_session(client, app):
-    with client.session_transaction() as session:
-        session["access_token"] = "expired"
-    @app.get("/_test_auth_error")
-    def test_error():
-        raise AuthenticationError("expirada", 401)
-    response = client.get("/_test_auth_error")
-    assert response.status_code == 302
-    with client.session_transaction() as session:
-        assert "access_token" not in session
-</file>
-
-<file path="frontend-flask/.env.example">
-FLASK_APP=run.py
-FLASK_ENV=development
-FLASK_SECRET_KEY=replace-with-a-long-random-secret
-BACKEND_API_URL=http://localhost:8080/api/v1
-REQUEST_TIMEOUT=10
-SESSION_COOKIE_SECURE=false
-</file>
-
-<file path="frontend-flask/.gitignore">
-.env
-.venv/
-__pycache__/
-.pytest_cache/
-*.py[cod]
-instance/
-</file>
-
-<file path="frontend-flask/Dockerfile">
-FROM python:3.12-slim
-WORKDIR /app
-ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-COPY . .
-EXPOSE 5000
-CMD ["flask", "--app", "run.py", "run", "--host=0.0.0.0", "--port=5000"]
-</file>
-
-<file path="frontend-flask/README.md">
-# FinanceAI Frontend Flask
-
-Capa de presentación Flask para consumir el backend Spring Boot de FinanceAI. No accede directamente a PostgreSQL ni a FastAPI.
-
-## Funciones incluidas
-
-- Registro y login contra Spring Boot.
-- JWT guardado en la sesión de Flask.
-- Creación de perfil financiero después del registro.
-- Dashboard, alta y consulta de transacciones.
-- Vistas preparadas para análisis e historial.
-- Normalización temporal de respuestas camelCase/snake_case.
-- Manejo centralizado de 400, 401, 403, 404, 409, 5xx y timeouts.
-
-## Ejecución local
-
-```bash
-python -m venv .venv
-```
-
-Windows:
-
-```powershell
-.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-Copy-Item .env.example .env
-flask --app run.py run --debug
-```
-
-Define `FLASK_SECRET_KEY` y confirma que `BACKEND_API_URL` apunte a Spring Boot.
-
-## Pruebas
-
-```bash
-pytest -q
-```
-
-## Pendientes externos
-
-El análisis y el historial requieren que Spring Boot y el motor de IA resuelvan la ruta y el contrato de respuesta. La ausencia de `GET /api/v1/perfil` impide consultar el perfil existente, pero no bloquea su creación.
-</file>
-
-<file path="frontend-flask/requirements.txt">
-Flask==3.1.1
-requests==2.32.4
-python-dotenv==1.1.1
-Flask-WTF==1.2.2
-pytest==8.4.1
-</file>
-
-<file path="frontend-flask/run.py">
-from app import create_app
-
-app = create_app()
-
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=app.config["DEBUG"])
 </file>
 
 <file path="backend/.mvn/wrapper/maven-wrapper.properties">
@@ -1978,274 +1266,664 @@ EXPOSE 8000
 CMD ["uvicorn","main:app","--host","0.0.0.0","--port","8000"]
 </file>
 
-<file path="data-science/main.py">
-from fastapi import FastAPI, HTTPException, status
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
-from typing import List, Dict
-from contextlib import asynccontextmanager
-import pandas as pd
-import numpy as np
-import joblib
-import sklearn
-import sklearn.compose._column_transformer
-
-# ==============================================================================
-# 1. PARCHE DE COMPATIBILIDAD SKLEARN
-# ==============================================================================
-if not hasattr(sklearn.compose._column_transformer, '_RemainderColsList'):
-    class _RemainderColsList(list):
-        pass
-    sklearn.compose._column_transformer._RemainderColsList = _RemainderColsList
-
-# ==============================================================================
-# 2. CARGA SEGURA DE MODELOS (LIFESPAN)
-# ==============================================================================
-modelos = {}
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Proceso de arranque (Startup)
-    try:
-        modelos['transacciones'] = joblib.load('modelo_clasificacion_transacciones.pkl')
-        modelos['perfil'] = joblib.load('modelo_perfil_financiero.pkl')
-        print("✅ [PROD] Modelos ML cargados exitosamente.")
-    except Exception as e:
-        print(f"❌ [ERROR CRÍTICO] Fallo al cargar modelos .pkl: {e}")
-        raise RuntimeError(f"No se pudieron cargar los modelos en producción: {e}")
-    yield
-    # Proceso de apagado (Shutdown)
-    modelos.clear()
-
-# ==============================================================================
-# 3. CREAR LA APLICACIÓN FASTAPI
-# ==============================================================================
-app = FastAPI(
-    title="API Analítica Financiera",
-    version="1.0.0",
-    lifespan=lifespan
-)
-
-# Configuración de CORS para producción / Oracle Cloud
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],  # En prod estricto, reemplaza "*" por la IP/Dominio de tu Frontend
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-# ==============================================================================
-# 4. ESTRUCTURA DE DATOS DE ENTRADA (Pydantic Models)
-# ==============================================================================
-class TransaccionInput(BaseModel):
-    nombre_comercio: str = Field(
-        ..., 
-        example="Uber", 
-        description="Nombre del establecimiento o comercio"
-    )
-    monto_transaccion: float = Field(
-        ..., 
-        gt=0, 
-        example=250.0, 
-        description="Monto de la transacción (debe ser mayor a 0)"
-    )
-    medio_pago: str = Field(
-        ..., 
-        example="credito", 
-        description="Medios aceptados: credito, debito, transaccion, efectivo"
-    )
-
-class EntradaUsuario(BaseModel):
-    edad: int = Field(..., ge=18, le=120)
-    sexo: str
-    estado_civil: str
-    numero_hijos: int = Field(..., ge=0)
-    empleo_formal: int = Field(..., ge=0, le=1)
-    ingreso_mensual: float = Field(..., ge=0)
-    linea_credito: float = Field(..., ge=0)
-    transacciones: List[TransaccionInput] = []
-
-# ==============================================================================
-# 5. ENDPOINTS DE PRODUCCIÓN
-# ==============================================================================
-
-@app.get("/health", status_code=status.HTTP_200_OK)
-def health_check():
-    """Endpoint para que Oracle Cloud / Docker verifique si la API está viva"""
-    if 'transacciones' not in modelos or 'perfil' not in modelos:
-        raise HTTPException(status_code=500, detail="Modelos no inicializados")
-    return {"status": "ok", "models_loaded": True}
-
-@app.post("/analisis-financiero")
-def analizar_usuario(datos: EntradaUsuario):
-    try:
-        modelo_perfil = modelos.get('perfil')
-        modelo_transacciones = modelos.get('transacciones')
-
-        # ----------------------------------------------------------------------
-        # A) CÁLCULO DE GASTOS Y MÉTRICAS FINANCIERAS
-        # ----------------------------------------------------------------------
-        gasto_total = 0.0
-        if datos.transacciones:
-            gasto_total = sum([float(tx.monto_transaccion) for tx in datos.transacciones])
-
-        # 1. Nivel de Endeudamiento (escala float 0.0 a 1.0)
-        denom_endeudamiento = datos.ingreso_mensual + datos.linea_credito
-        if denom_endeudamiento > 0:
-            nivel_endeudamiento = round(float(gasto_total / denom_endeudamiento), 2)
-        else:
-            nivel_endeudamiento = 0.0
-
-        # 2. Rango de Ahorro (String)
-        if datos.ingreso_mensual > 0:
-            ahorro_bruto = max(datos.ingreso_mensual - gasto_total, 0.0)
-            pct_ahorro = ahorro_bruto / datos.ingreso_mensual
-        else:
-            pct_ahorro = 0.0
-
-        if pct_ahorro >= 0.40:
-            rango_ahorro_str = "Alta"
-        elif pct_ahorro >= 0.20:
-            rango_ahorro_str = "Media"
-        elif pct_ahorro > 0:
-            rango_ahorro_str = "Baja"
-        else:
-            rango_ahorro_str = "Ninguna"
-
-# ----------------------------------------------------------------------
-        # B) PREDICCIÓN CON MODELO DE PERFIL (.pkl)
-        # ----------------------------------------------------------------------
-        df_cliente = pd.DataFrame([{
-            'edad': int(datos.edad),
-            'sexo': str(datos.sexo).lower().strip(),
-            'estado_civil': str(datos.estado_civil).lower().strip(),
-            'numero_hijos': int(datos.numero_hijos),
-            'empleo_formal': int(datos.empleo_formal),
-            'ingreso_mensual': float(datos.ingreso_mensual),
-            'linea_credito': float(datos.linea_credito),
-            'nivel_endeudamiento': float(nivel_endeudamiento),
-            'rango_ahorro': float(pct_ahorro)  # Valor decimal menor a 1
-        }])
-
-        perfil_pred = modelo_perfil.predict(df_cliente)[0]
-        perfil_str = str(perfil_pred).upper().replace(" ", "_")
-
-        # Inicializamos la probabilidad por defecto por seguridad
-        probabilidad = 0.85
-        try:
-            if hasattr(modelo_perfil, "predict_proba"):
-                probs = modelo_perfil.predict_proba(df_cliente)[0]
-                probabilidad = round(float(np.max(probs)), 2)
-        except Exception:
-            probabilidad = 0.85
-
-        # ----------------------------------------------------------------------
-        # C) CLASIFICACIÓN NLP DE TRANSACCIONES
-        # ----------------------------------------------------------------------
-        resumen_gastos: Dict[str, float] = {}
-        
-        if datos.transacciones and len(datos.transacciones) > 0:
-            df_tx = pd.DataFrame([
-                {
-                    'nombre_comercio': str(t.nombre_comercio).lower().strip(),
-                    'monto_transaccion': float(t.monto_transaccion)
-                }
-                for t in datos.transacciones
-            ])
-            
-            # Evaluación defensiva de probabilidades o predicción directa
-            try:
-                probs_matriz = modelo_transacciones.predict_proba(df_tx)
-                clases = modelo_transacciones.classes_
-                categorias_finales = []
-
-                for probs in probs_matriz:
-                    prob_max = float(np.max(probs))
-                    idx_max = int(np.argmax(probs))
-                    
-                    # Umbral de confianza al 60%
-                    if prob_max <= 0.60:
-                        categorias_finales.append("otros servicios")
-                    else:
-                        categorias_finales.append(str(clases[idx_max]))
-                
-                df_tx['categoria'] = categorias_finales
-            except Exception:
-                # Si el modelo no soporta predict_proba, realiza la predicción directa
-                preds = modelo_transacciones.predict(df_tx)
-                df_tx['categoria'] = [str(p) for p in preds]
-            
-            # Agrupar montos por categoría
-            agrupar = df_tx.groupby('categoria')['monto_transaccion'].sum().to_dict()
-            resumen_gastos = {str(k).lower(): round(float(v), 2) for k, v in agrupar.items()}
-
-        # ----------------------------------------------------------------------
-        # D) GENERACIÓN DE RECOMENDACIONES
-        # ----------------------------------------------------------------------
-        recomendaciones = []
-
-        if perfil_str == "RIESGOSO" and datos.linea_credito > datos.ingreso_mensual:
-            recomendaciones.append(
-                "Para aumentar el score del perfil financiero, se recomienda reducir el gasto o incrementar el ingreso mensual"
-            )
-
-        if "entretenimiento" in resumen_gastos and resumen_gastos["entretenimiento"] > (datos.ingreso_mensual * 0.15):
-            recomendaciones.append("Monitorear los gastos recurrentes de entretenimiento.")
-
-        if nivel_endeudamiento > 0.50:
-            recomendaciones.append("Reducir las gastos para bajar el nivel de endeudamiento.")
-
-        if not recomendaciones:
-            recomendaciones.append("Mantener los hábitos de gasto actuales y continuar monitoreando el presupuesto.")
-
-        # ----------------------------------------------------------------------
-        # E) SALIDA EN FORMATO ESTRICTO
-        # ----------------------------------------------------------------------
-        return {
-            "perfilFinanciero": perfil_str,
-            "probabilidad": probabilidad,
-            "nivel_endeudamiento": nivel_endeudamiento,
-            "rango_ahorro": rango_ahorro_str,
-            "resumenGastos": resumen_gastos,
-            "recomendaciones": recomendaciones
-        }
-
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error interno en la inferencia del modelo: {str(e)}"
-        )
-
-####http://localhost:8000/docs####
-</file>
-
 <file path="data-science/README.md">
 # Data Science
 </file>
 
-<file path="frontend/css/style.css">
-body {
-    background-color: #f8f9fa;
-}
+<file path="frontend/app/routes/__init__.py">
 
-.card {
-    border: none;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-}
+</file>
 
-.badge-Saludable {
-    background-color: #198754;
-}
+<file path="frontend/app/routes/analisis.py">
+from flask import Blueprint, flash, redirect, render_template, url_for
+from ..decorators import login_required
+from ..services.exceptions import FinanceAIError
+from ..services.financeai_api import api
 
-.badge-Observacion {
-    background-color: #ffc107;
-    color: black;
-}
+analisis_bp = Blueprint("analisis", __name__, url_prefix="/analisis")
 
-.badge-Riesgo {
-    background-color: #dc3545;
-}
+
+@analisis_bp.post("/generar")
+@login_required
+def generate():
+    try:
+        result = api.request_analysis()
+        return render_template("analisis/resultado.html", result=result)
+    except FinanceAIError as error:
+        flash(f"El análisis no pudo completarse: {error}", "danger")
+        return redirect(url_for("dashboard.index"))
+</file>
+
+<file path="frontend/app/routes/auth.py">
+from urllib.parse import urlparse
+from flask import Blueprint, flash, redirect, render_template, request, session, url_for
+from ..services.exceptions import ConflictError, FinanceAIError, ValidationError
+from ..services.financeai_api import api
+
+auth_bp = Blueprint("auth", __name__)
+
+
+def _safe_next(target):
+    parsed = urlparse(target or "")
+    return bool(target and target.startswith("/") and not parsed.scheme and not parsed.netloc)
+
+
+@auth_bp.route("/", methods=["GET", "POST"])
+@auth_bp.route("/login", methods=["GET", "POST"])
+def login():
+    if session.get("access_token"):
+        return redirect(url_for("dashboard.index"))
+    if request.method == "POST":
+        try:
+            data = api.login({"email": request.form.get("email", "").strip(), "password": request.form.get("password", "")})
+            token = (data or {}).get("token")
+            if not token:
+                raise ValidationError("El backend no devolvió un token válido.", 502)
+            session.clear()
+            session["access_token"] = token
+            session.permanent = True
+            flash((data or {}).get("message", "Sesión iniciada correctamente."), "success")
+            target = request.args.get("next")
+            return redirect(target if _safe_next(target) else url_for("dashboard.index"))
+        except FinanceAIError as error:
+            flash(str(error), "danger")
+    return render_template("auth/login.html")
+
+
+@auth_bp.route("/registro", methods=["GET", "POST"])
+def register():
+    if request.method == "POST":
+        user_payload = {
+            "nombre": request.form.get("nombre", "").strip(),
+            "apellido": request.form.get("apellido", "").strip(),
+            "documento": request.form.get("documento", "").strip(),
+            "email": request.form.get("email", "").strip(),
+            "password": request.form.get("password", ""),
+            "fecha_nacimiento": request.form.get("fecha_nacimiento", ""),
+            "sexo": request.form.get("sexo", ""),
+            "estado_civil": request.form.get("estado_civil", ""),
+            "numero_hijos": int(request.form.get("numero_hijos") or 0),
+        }
+        profile_payload = {
+            "empleo_formal": int(request.form.get("empleo_formal") or 0),
+            "ingreso_mensual": request.form.get("ingreso_mensual", ""),
+            "linea_credito": request.form.get("linea_credito", ""),
+        }
+        try:
+            data = api.register(user_payload)
+            token = (data or {}).get("token")
+            if not token:
+                raise ValidationError("El registro no devolvió un token válido.", 502)
+            session.clear()
+            session["access_token"] = token
+            session.permanent = True
+            try:
+                api.create_profile(profile_payload)
+            except ConflictError:
+                pass
+            flash("Cuenta y perfil creados correctamente.", "success")
+            return redirect(url_for("dashboard.index"))
+        except FinanceAIError as error:
+            flash(str(error), "danger")
+    return render_template("auth/registro.html")
+
+
+@auth_bp.post("/logout")
+def logout():
+    session.clear()
+    flash("Sesión cerrada correctamente.", "success")
+    return redirect(url_for("auth.login"))
+</file>
+
+<file path="frontend/app/routes/dashboard.py">
+from flask import Blueprint, render_template
+from ..decorators import login_required
+from ..services.exceptions import FinanceAIError
+from ..services.financeai_api import api
+
+dashboard_bp = Blueprint("dashboard", __name__, url_prefix="/dashboard")
+
+
+@dashboard_bp.get("/")
+@login_required
+def index():
+    transactions, warning = [], None
+    try:
+        transactions = api.list_transactions()
+    except FinanceAIError as error:
+        warning = str(error)
+    total = sum(float(item.get("monto_transaccion") or 0) for item in transactions)
+    return render_template("dashboard/index.html", transactions=transactions[:5], total=total, warning=warning)
+</file>
+
+<file path="frontend/app/routes/historial.py">
+from flask import Blueprint, render_template
+from ..decorators import login_required
+from ..services.financeai_api import api
+
+historial_bp = Blueprint("historial", __name__, url_prefix="/historial")
+
+
+@historial_bp.get("/")
+@login_required
+def index():
+    return render_template("historial/index.html", items=api.list_history())
+</file>
+
+<file path="frontend/app/routes/transacciones.py">
+from flask import Blueprint, flash, redirect, render_template, request, url_for
+from ..decorators import login_required
+from ..services.exceptions import FinanceAIError
+from ..services.financeai_api import api
+
+transacciones_bp = Blueprint("transacciones", __name__, url_prefix="/transacciones")
+
+
+@transacciones_bp.get("/")
+@login_required
+def index():
+    return render_template("transacciones/lista.html", transactions=api.list_transactions())
+
+
+@transacciones_bp.route("/nueva", methods=["GET", "POST"])
+@login_required
+def create():
+    if request.method == "POST":
+        payload = {
+            "nombre_comercio": request.form.get("nombre_comercio", "").strip(),
+            "monto_transaccion": request.form.get("monto_transaccion", ""),
+            "medio_pago": request.form.get("medio_pago", ""),
+        }
+        try:
+            api.create_transaction(payload)
+            flash("Transacción registrada correctamente.", "success")
+            return redirect(url_for("transacciones.index"))
+        except FinanceAIError as error:
+            flash(str(error), "danger")
+    return render_template("transacciones/formulario.html")
+</file>
+
+<file path="frontend/app/services/__init__.py">
+
+</file>
+
+<file path="frontend/app/services/exceptions.py">
+class FinanceAIError(Exception):
+    def __init__(self, message, status_code=None, details=None):
+        super().__init__(message)
+        self.status_code = status_code
+        self.details = details
+
+
+class AuthenticationError(FinanceAIError):
+    pass
+
+
+class AuthorizationError(FinanceAIError):
+    pass
+
+
+class ValidationError(FinanceAIError):
+    pass
+
+
+class ConflictError(FinanceAIError):
+    pass
+
+
+class ResourceNotFoundError(FinanceAIError):
+    pass
+
+
+class BackendUnavailableError(FinanceAIError):
+    pass
+
+
+class BackendError(FinanceAIError):
+    pass
+</file>
+
+<file path="frontend/app/services/financeai_api.py">
+import requests
+from flask import current_app, session
+from .exceptions import (
+    AuthenticationError, AuthorizationError, BackendError,
+    BackendUnavailableError, ConflictError, ResourceNotFoundError,
+    ValidationError,
+)
+
+
+class FinanceAIAPI:
+    def _headers(self, authenticated=True):
+        headers = {"Accept": "application/json", "Content-Type": "application/json"}
+        if authenticated:
+            token = session.get("access_token")
+            if not token:
+                raise AuthenticationError("Tu sesión no está activa.", 401)
+            headers["Authorization"] = f"Bearer {token}"
+        return headers
+
+    @staticmethod
+    def _message(response):
+        try:
+            body = response.json()
+        except ValueError:
+            return "El servicio devolvió una respuesta no válida."
+        if isinstance(body, dict):
+            return body.get("message") or body.get("detail") or body.get("error") or "La solicitud no pudo completarse."
+        return "La solicitud no pudo completarse."
+
+    def request(self, method, endpoint, *, authenticated=True, json=None, params=None):
+        try:
+            response = requests.request(
+                method,
+                f'{current_app.config["BACKEND_API_URL"]}{endpoint}',
+                headers=self._headers(authenticated),
+                json=json,
+                params=params,
+                timeout=current_app.config["REQUEST_TIMEOUT"],
+            )
+        except (requests.Timeout, requests.ConnectionError) as exc:
+            raise BackendUnavailableError("FinanceAI no está disponible temporalmente.", 503) from exc
+        except requests.RequestException as exc:
+            raise BackendError("No fue posible completar la solicitud.", 502) from exc
+
+        message = self._message(response)
+        if response.status_code == 401:
+            session.clear()
+            raise AuthenticationError("Tu sesión expiró o el token no es válido.", 401)
+        if response.status_code == 403:
+            raise AuthorizationError("No tienes permisos para realizar esta operación.", 403)
+        if response.status_code == 400:
+            raise ValidationError(message, 400)
+        if response.status_code == 404:
+            raise ResourceNotFoundError(message, 404)
+        if response.status_code == 409:
+            raise ConflictError(message, 409)
+        if response.status_code >= 500:
+            raise BackendError(message, response.status_code)
+        if not response.ok:
+            raise BackendError(message, response.status_code)
+        if response.status_code == 204 or not response.content:
+            return None
+        try:
+            return response.json()
+        except ValueError as exc:
+            raise BackendError("El backend devolvió JSON no válido.", 502) from exc
+
+    def register(self, payload):
+        return self.request("POST", "/auth/register", authenticated=False, json=payload)
+
+    def login(self, payload):
+        return self.request("POST", "/auth/login", authenticated=False, json=payload)
+
+    def create_profile(self, payload):
+        return self.request("POST", "/perfil", json=payload)
+
+    def list_transactions(self):
+        data = self.request("GET", "/transacciones/usuario/transacciones")
+        return [normalize_transaction(x) for x in (data or [])]
+
+    def create_transaction(self, payload):
+        return normalize_transaction(self.request("POST", "/transacciones/usuario/transacciones", json=payload))
+
+    def request_analysis(self):
+        return normalize_analysis(self.request("POST", "/analisis/predict"))
+
+    def list_history(self):
+        data = self.request("GET", "/analisis/usuario/historial")
+        return [normalize_analysis(x) for x in (data or [])]
+
+
+def _pick(data, *keys, default=None):
+    if not isinstance(data, dict):
+        return default
+    for key in keys:
+        if key in data:
+            return data[key]
+    return default
+
+
+def normalize_transaction(data):
+    return {
+        "nombre_comercio": _pick(data, "nombre_comercio", "nombreComercio", default=""),
+        "monto_transaccion": _pick(data, "monto_transaccion", "montoTransaccion", default=0),
+        "medio_pago": _pick(data, "medio_pago", "medioPago", default=""),
+        "fecha": _pick(data, "fecha", default=""),
+    }
+
+
+def normalize_analysis(data):
+    data = data or {}
+    return {
+        "id": _pick(data, "id"),
+        "perfil_financiero": _pick(data, "perfil_financiero", "perfilFinanciero", default="SIN_DATOS"),
+        "probabilidad": _pick(data, "probabilidad"),
+        "nivel_endeudamiento": _pick(data, "nivel_endeudamiento", "nivelEndeudamiento"),
+        "rango_ahorro": _pick(data, "rango_ahorro", "rangoAhorro", "porcentaje_ahorro", default=""),
+        "resumen_gastos": _pick(data, "resumen_gastos", "resumenGastos", default={}) or {},
+        "recomendaciones": _pick(data, "recomendaciones", default=[]) or [],
+    }
+
+
+api = FinanceAIAPI()
+</file>
+
+<file path="frontend/app/static/css/style.css">
+body{background:#f5f7fb}.card{border:0;box-shadow:0 .25rem 1rem rgba(28,39,49,.08);border-radius:1rem}.auth-card,.form-card{max-width:34rem}.navbar{background:linear-gradient(90deg,#0d6efd,#1746a2)!important}
+</file>
+
+<file path="frontend/app/static/js/main.js">
+document.querySelectorAll('form').forEach(form => form.addEventListener('submit', () => { const button=form.querySelector('button[type="submit"],button:not([type])'); if(button){button.disabled=true;} }));
+</file>
+
+<file path="frontend/app/templates/analisis/resultado.html">
+{% extends 'base.html' %}{% block content %}<h1>Resultado del análisis</h1><div class="row g-3"><div class="col-md-4"><div class="card p-3"><span>Perfil</span><strong>{{ result.perfil_financiero }}</strong></div></div><div class="col-md-4"><div class="card p-3"><span>Probabilidad</span><strong>{{ result.probabilidad or 'N/D' }}</strong></div></div><div class="col-md-4"><div class="card p-3"><span>Ahorro</span><strong>{{ result.rango_ahorro or 'N/D' }}</strong></div></div></div><div class="card p-3 mt-3"><h2 class="h5">Resumen de gastos</h2><ul>{% for category, amount in result.resumen_gastos.items() %}<li>{{ category|title }}: ${{ amount }}</li>{% else %}<li>Sin datos</li>{% endfor %}</ul><h2 class="h5">Recomendaciones</h2><ul>{% for item in result.recomendaciones %}<li>{{ item }}</li>{% else %}<li>Sin recomendaciones</li>{% endfor %}</ul></div>{% endblock %}
+</file>
+
+<file path="frontend/app/templates/auth/login.html">
+{% extends 'base.html' %}{% block title %}Iniciar sesión | FinanceAI{% endblock %}{% block content %}
+<div class="auth-card card p-4 mx-auto"><h1 class="h3 mb-3">Iniciar sesión</h1>
+<form method="post"><div class="mb-3"><label class="form-label">Correo</label><input class="form-control" type="email" name="email" required></div>
+<div class="mb-3"><label class="form-label">Contraseña</label><input class="form-control" type="password" name="password" required></div>
+<button class="btn btn-primary w-100">Entrar</button></form><p class="mt-3 mb-0">¿No tienes cuenta? <a href="{{ url_for('auth.register') }}">Regístrate</a></p></div>
+{% endblock %}
+</file>
+
+<file path="frontend/app/templates/auth/registro.html">
+{% extends 'base.html' %}{% block title %}Registro | FinanceAI{% endblock %}{% block content %}
+<div class="card p-4"><h1 class="h3">Crear cuenta y perfil</h1><form method="post" class="row g-3">
+{% for name,label,type in [('nombre','Nombre','text'),('apellido','Apellido','text'),('documento','Documento','text'),('email','Correo','email'),('password','Contraseña','password'),('fecha_nacimiento','Fecha de nacimiento','date')] %}
+<div class="col-md-6"><label class="form-label">{{ label }}</label><input class="form-control" name="{{ name }}" type="{{ type }}" required></div>{% endfor %}
+<div class="col-md-4"><label class="form-label">Sexo</label><select class="form-select" name="sexo" required><option value="M">Masculino</option><option value="F">Femenino</option></select></div>
+<div class="col-md-4"><label class="form-label">Estado civil</label><select class="form-select" name="estado_civil" required>{% for x in ['SOLTERO','CASADO','DIVORCIADO','VIUDO'] %}<option>{{ x }}</option>{% endfor %}</select></div>
+<div class="col-md-4"><label class="form-label">Número de hijos</label><input class="form-control" type="number" min="0" name="numero_hijos" value="0" required></div>
+<div class="col-md-4"><label class="form-label">Empleo formal</label><select class="form-select" name="empleo_formal"><option value="1">Sí</option><option value="0">No</option></select></div>
+<div class="col-md-4"><label class="form-label">Ingreso mensual</label><input class="form-control" type="number" min="0.01" step="0.01" name="ingreso_mensual" required></div>
+<div class="col-md-4"><label class="form-label">Línea de crédito</label><input class="form-control" type="number" min="0" step="0.01" name="linea_credito" required></div>
+<div class="col-12"><button class="btn btn-primary">Crear cuenta</button></div></form></div>{% endblock %}
+</file>
+
+<file path="frontend/app/templates/dashboard/index.html">
+{% extends 'base.html' %}{% block content %}<div class="d-flex justify-content-between align-items-center mb-4"><div><h1>Dashboard</h1><p class="text-muted mb-0">Resumen de tu actividad financiera</p></div><form method="post" action="{{ url_for('analisis.generate') }}"><button class="btn btn-success">Generar análisis</button></form></div>
+{% if warning %}<div class="alert alert-warning">{{ warning }}</div>{% endif %}<div class="row g-3 mb-4"><div class="col-md-6"><div class="card p-3"><span class="text-muted">Transacciones</span><strong class="display-6">{{ transactions|length }}</strong></div></div><div class="col-md-6"><div class="card p-3"><span class="text-muted">Monto mostrado</span><strong class="display-6">${{ '%.2f'|format(total) }}</strong></div></div></div>
+<div class="card p-3"><div class="d-flex justify-content-between"><h2 class="h5">Últimas transacciones</h2><a href="{{ url_for('transacciones.create') }}">Nueva</a></div>{% include 'transacciones/_tabla.html' %}</div>{% endblock %}
+</file>
+
+<file path="frontend/app/templates/errors/error.html">
+{% extends 'base.html' %}{% block content %}<div class="text-center py-5"><div class="display-1 fw-bold text-primary">{{ code }}</div><h1>{{ title }}</h1><p class="text-muted">{{ message }}</p><a class="btn btn-primary" href="{{ url_for('dashboard.index') if session.get('access_token') else url_for('auth.login') }}">Continuar</a></div>{% endblock %}
+</file>
+
+<file path="frontend/app/templates/historial/index.html">
+{% extends 'base.html' %}{% block content %}<h1>Historial de análisis</h1>{% for item in items %}<div class="card p-3 mb-3"><div class="d-flex justify-content-between"><strong>{{ item.perfil_financiero }}</strong><span>{{ item.probabilidad or 'N/D' }}</span></div><ul class="mt-2 mb-0">{% for recommendation in item.recomendaciones %}<li>{{ recommendation }}</li>{% endfor %}</ul></div>{% else %}<div class="alert alert-info">Todavía no hay análisis guardados.</div>{% endfor %}{% endblock %}
+</file>
+
+<file path="frontend/app/templates/transacciones/_tabla.html">
+{% if transactions %}<div class="table-responsive"><table class="table"><thead><tr><th>Comercio</th><th>Monto</th><th>Medio</th><th>Fecha</th></tr></thead><tbody>{% for tx in transactions %}<tr><td>{{ tx.nombre_comercio }}</td><td>${{ tx.monto_transaccion }}</td><td>{{ tx.medio_pago }}</td><td>{{ tx.fecha }}</td></tr>{% endfor %}</tbody></table></div>{% else %}<p class="text-muted my-3">No hay transacciones registradas.</p>{% endif %}
+</file>
+
+<file path="frontend/app/templates/transacciones/formulario.html">
+{% extends 'base.html' %}{% block content %}<div class="card p-4 mx-auto form-card"><h1 class="h3">Nueva transacción</h1><form method="post"><div class="mb-3"><label class="form-label">Comercio</label><input class="form-control" name="nombre_comercio" required></div><div class="mb-3"><label class="form-label">Monto</label><input class="form-control" type="number" min="0.01" step="0.01" name="monto_transaccion" required></div><div class="mb-3"><label class="form-label">Medio de pago</label><select class="form-select" name="medio_pago">{% for x in ['EFECTIVO','DEBITO','CREDITO','TRANSFERENCIA'] %}<option>{{ x }}</option>{% endfor %}</select></div><button class="btn btn-primary">Guardar</button></form></div>{% endblock %}
+</file>
+
+<file path="frontend/app/templates/transacciones/lista.html">
+{% extends 'base.html' %}{% block content %}<div class="d-flex justify-content-between"><h1>Transacciones</h1><a class="btn btn-primary" href="{{ url_for('transacciones.create') }}">Nueva transacción</a></div><div class="card p-3 mt-3">{% include 'transacciones/_tabla.html' %}</div>{% endblock %}
+</file>
+
+<file path="frontend/app/templates/base.html">
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{% block title %}FinanceAI{% endblock %}</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+</head>
+<body>
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary"><div class="container">
+  <a class="navbar-brand fw-bold" href="{{ url_for('dashboard.index') }}">FinanceAI</a>
+  {% if session.get('access_token') %}<div class="d-flex gap-2">
+    <a class="btn btn-sm btn-outline-light" href="{{ url_for('transacciones.index') }}">Transacciones</a>
+    <a class="btn btn-sm btn-outline-light" href="{{ url_for('historial.index') }}">Historial</a>
+    <form method="post" action="{{ url_for('auth.logout') }}"><button class="btn btn-sm btn-light">Salir</button></form>
+  </div>{% endif %}
+</div></nav>
+<main class="container py-4">
+{% for category, message in get_flashed_messages(with_categories=true) %}
+<div class="alert alert-{{ category }} alert-dismissible fade show">{{ message }}<button class="btn-close" data-bs-dismiss="alert"></button></div>
+{% endfor %}
+{% block content %}{% endblock %}
+</main>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body></html>
+</file>
+
+<file path="frontend/app/__init__.py">
+from flask import Flask
+from .config import Config
+from .errors import register_error_handlers
+
+
+def create_app(config_object=Config):
+    app = Flask(__name__)
+    app.config.from_object(config_object)
+
+    if not app.config.get("SECRET_KEY"):
+        raise RuntimeError("FLASK_SECRET_KEY es obligatoria")
+
+    from .routes.auth import auth_bp
+    from .routes.dashboard import dashboard_bp
+    from .routes.transacciones import transacciones_bp
+    from .routes.analisis import analisis_bp
+    from .routes.historial import historial_bp
+
+    app.register_blueprint(auth_bp)
+    app.register_blueprint(dashboard_bp)
+    app.register_blueprint(transacciones_bp)
+    app.register_blueprint(analisis_bp)
+    app.register_blueprint(historial_bp)
+    register_error_handlers(app)
+    return app
+</file>
+
+<file path="frontend/app/config.py">
+import os
+from datetime import timedelta
+
+
+def _as_bool(value: str | None, default=False):
+    if value is None:
+        return default
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+class Config:
+    SECRET_KEY = os.getenv("FLASK_SECRET_KEY")
+    BACKEND_API_URL = os.getenv("BACKEND_API_URL", "http://localhost:8080/api/v1").rstrip("/")
+    REQUEST_TIMEOUT = float(os.getenv("REQUEST_TIMEOUT", "10"))
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = "Lax"
+    SESSION_COOKIE_SECURE = _as_bool(os.getenv("SESSION_COOKIE_SECURE"), False)
+    PERMANENT_SESSION_LIFETIME = timedelta(hours=8)
+    WTF_CSRF_TIME_LIMIT = timedelta(hours=8)
+    DEBUG = _as_bool(os.getenv("FLASK_DEBUG"), False)
+</file>
+
+<file path="frontend/app/decorators.py">
+from functools import wraps
+from flask import flash, redirect, request, session, url_for
+
+
+def login_required(view):
+    @wraps(view)
+    def wrapped(*args, **kwargs):
+        if not session.get("access_token"):
+            flash("Tu sesión no está activa. Inicia sesión para continuar.", "warning")
+            return redirect(url_for("auth.login", next=request.path))
+        return view(*args, **kwargs)
+    return wrapped
+</file>
+
+<file path="frontend/app/errors.py">
+from flask import flash, redirect, render_template, request, session, url_for
+from .services.exceptions import AuthenticationError, AuthorizationError, BackendError, BackendUnavailableError
+
+
+def register_error_handlers(app):
+    @app.errorhandler(AuthenticationError)
+    def authentication_error(error):
+        session.clear()
+        flash(str(error), "warning")
+        return redirect(url_for("auth.login", next=request.path))
+
+    @app.errorhandler(AuthorizationError)
+    def authorization_error(error):
+        return render_template("errors/error.html", code=403, title="Acceso denegado", message=str(error)), 403
+
+    @app.errorhandler(BackendUnavailableError)
+    def unavailable_error(error):
+        return render_template("errors/error.html", code=503, title="Servicio no disponible", message=str(error)), 503
+
+    @app.errorhandler(BackendError)
+    def backend_error(error):
+        code = error.status_code if error.status_code and 500 <= error.status_code <= 599 else 502
+        return render_template("errors/error.html", code=code, title="Error del servicio", message="No fue posible completar la operación."), code
+
+    @app.errorhandler(404)
+    def not_found(_error):
+        return render_template("errors/error.html", code=404, title="Página no encontrada", message="La página solicitada no existe."), 404
+
+    @app.errorhandler(500)
+    def internal_error(_error):
+        return render_template("errors/error.html", code=500, title="Error interno", message="Ocurrió un error inesperado."), 500
+</file>
+
+<file path="frontend/tests/conftest.py">
+import pytest
+from app import create_app
+
+
+class TestConfig:
+    TESTING = True
+    SECRET_KEY = "test-secret"
+    BACKEND_API_URL = "http://backend.test/api/v1"
+    REQUEST_TIMEOUT = 1
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = "Lax"
+    SESSION_COOKIE_SECURE = False
+    WTF_CSRF_ENABLED = False
+
+
+@pytest.fixture
+def app():
+    return create_app(TestConfig)
+
+
+@pytest.fixture
+def client(app):
+    return app.test_client()
+</file>
+
+<file path="frontend/tests/test_normalizers.py">
+from app.services.financeai_api import normalize_analysis, normalize_transaction
+
+
+def test_transaction_accepts_camel_case():
+    value = normalize_transaction({"nombreComercio": "Tienda", "montoTransaccion": 10, "medioPago": "EFECTIVO"})
+    assert value["nombre_comercio"] == "Tienda"
+    assert value["monto_transaccion"] == 10
+
+
+def test_analysis_accepts_both_contracts():
+    value = normalize_analysis({"perfilFinanciero": "SALUDABLE", "resumenGastos": {"salud": 20}})
+    assert value["perfil_financiero"] == "SALUDABLE"
+    assert value["resumen_gastos"]["salud"] == 20
+</file>
+
+<file path="frontend/tests/test_session.py">
+from unittest.mock import patch
+from app.services.exceptions import AuthenticationError
+
+
+def test_protected_page_redirects_without_session(client):
+    response = client.get("/dashboard/")
+    assert response.status_code == 302
+    assert "/login" in response.headers["Location"]
+
+
+def test_login_saves_token(client):
+    with patch("app.routes.auth.api.login", return_value={"token": "jwt-test", "message": "ok"}):
+        response = client.post("/login", data={"email": "user@example.com", "password": "secret"})
+    assert response.status_code == 302
+    with client.session_transaction() as session:
+        assert session["access_token"] == "jwt-test"
+
+
+def test_logout_clears_session(client):
+    with client.session_transaction() as session:
+        session["access_token"] = "jwt-test"
+    response = client.post("/logout")
+    assert response.status_code == 302
+    with client.session_transaction() as session:
+        assert "access_token" not in session
+
+
+def test_401_handler_clears_session(client, app):
+    with client.session_transaction() as session:
+        session["access_token"] = "expired"
+    @app.get("/_test_auth_error")
+    def test_error():
+        raise AuthenticationError("expirada", 401)
+    response = client.get("/_test_auth_error")
+    assert response.status_code == 302
+    with client.session_transaction() as session:
+        assert "access_token" not in session
+</file>
+
+<file path="frontend/.env.example">
+FLASK_APP=run.py
+FLASK_ENV=development
+FLASK_SECRET_KEY=replace-with-a-long-random-secret
+BACKEND_API_URL=http://localhost:8080/api/v1
+REQUEST_TIMEOUT=10
+SESSION_COOKIE_SECURE=false
+</file>
+
+<file path="frontend/.gitignore">
+.env
+.venv/
+__pycache__/
+.pytest_cache/
+*.py[cod]
+instance/
+</file>
+
+<file path="frontend/Dockerfile">
+FROM python:3.12-slim
+WORKDIR /app
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+COPY . .
+EXPOSE 5000
+CMD ["flask", "--app", "run.py", "run", "--host=0.0.0.0", "--port=5000"]
+</file>
+
+<file path="frontend/requirements.txt">
+Flask==3.1.1
+requests==2.32.4
+python-dotenv==1.1.1
+Flask-WTF==1.2.2
+pytest==8.4.1
+</file>
+
+<file path="frontend/run.py">
+from app import create_app
+
+app = create_app()
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000, debug=app.config["DEBUG"])
 </file>
 
 <file path="notamaestra_financeai_v4.md">
@@ -3764,319 +3442,6 @@ Para eliminar el problema de *"en mi máquina no funciona"*, la infraestructura 
    docker compose up -d
 </file>
 
-<file path="data-science/requirements.txt">
-fastapi
-uvicorn
-pandas
-scikit-learn==1.3.2
-joblib
-pydantic
-</file>
-
-<file path="frontend/js/api.js">
-// ==========================================
-// Configuración y Utilidades Base de la API
-// ==========================================
-const BASE_URL = 'http://localhost:8080/api/v1';
-
-/**
- * Función genérica (fetch wrapper) para consumir endpoints protegidos.
- * Inyecta automáticamente el token JWT en las cabeceras.
- */
-async function fetchProtected(endpoint, options = {}) {
-    const token = localStorage.getItem('jwtToken');
-
-    if (!token) {
-        console.warn("No hay sesión activa");
-        return null;
-    }
-
-    const defaultHeaders = {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
-    };
-
-    const config = {
-        ...options,
-        headers: {
-            ...defaultHeaders,
-            ...options.headers
-        }
-    };
-
-    try {
-        const response = await fetch(`${BASE_URL}${endpoint}`, config);
-
-        // Si el token expiró o es inválido, Spring Boot devolverá 401 o 403
-        if (response.status === 401 || response.status === 403) {
-            localStorage.removeItem('jwtToken');
-            window.location.href = 'index.html';
-            throw new Error('Sesión expirada o no autorizada');
-        }
-
-        return response;
-    } catch (error) {
-        console.error('Error en fetchProtected:', error);
-        throw error;
-    }
-}
-</file>
-
-<file path="frontend/js/dashboard.js">
-// ==========================================
-// Configuración e Inicio
-// ==========================================
-// Asumiendo que `fetchProtected` está en api.js. Si no, asegúrate de que agregue la URL base '/api/v1' y el Header de Autorización.
-
-document.addEventListener('DOMContentLoaded', async () => {
-    const token = localStorage.getItem('jwtToken');
-    // AUD-01: Validamos que haya token
-    if (!token || token === 'undefined') {
-        window.location.href = 'index.html';
-        return;
-    }
-
-    // AUD-19: Validar si el usuario ya tiene perfil financiero
-    // Verificamos intentando consultar el perfil. (Asumiendo que existe un endpoint GET /perfil)
-    // Si el backend aún no tiene GET /perfil, esto fallará y forzará a llenarlo.
-    await verificarPerfilFinanciero();
-
-    cargarTransacciones();
-});
-
-const btnLogout = document.getElementById('btnLogout');
-if (btnLogout) {
-    btnLogout.addEventListener('click', () => {
-        localStorage.removeItem('jwtToken');
-        // También limpiamos banderas locales
-        localStorage.removeItem('perfilCompletado');
-        window.location.href = 'index.html';
-    });
-}
-
-// ==========================================
-// Módulo de Perfil Financiero (AUD-19)
-// ==========================================
-async function verificarPerfilFinanciero() {
-    // Si ya lo completó en esta sesión localmente, lo dejamos pasar
-    if (localStorage.getItem('perfilCompletado') === 'true') return;
-
-    // Aquí llamarías a tu API para validar. Por ahora, mostramos el modal directamente 
-    // si no tenemos constancia local de que lo haya llenado.
-    const modal = new bootstrap.Modal(document.getElementById('modalPerfilIncompleto'));
-    modal.show();
-
-    const formPerfil = document.getElementById('formPerfilFinanciero');
-    formPerfil.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const btnGuardar = document.getElementById('btnGuardarPerfil');
-        btnGuardar.disabled = true;
-        btnGuardar.innerText = 'Guardando...';
-
-        const payload = {
-            ingresoMensual: parseFloat(document.getElementById('perfilIngreso').value),
-            lineaCredito: parseFloat(document.getElementById('perfilCredito').value),
-            empleoFormal: document.getElementById('perfilEmpleoFormal').checked
-        };
-
-        try {
-            // Requisito: Endpoint para crear perfil
-            const response = await fetchProtected('/perfil', {
-                method: 'POST',
-                body: JSON.stringify(payload)
-            });
-
-            if (response.ok) {
-                localStorage.setItem('perfilCompletado', 'true');
-                modal.hide();
-            } else {
-                alert('Hubo un error al guardar tu perfil. Inténtalo de nuevo.');
-                btnGuardar.disabled = false;
-                btnGuardar.innerText = 'Guardar y Continuar';
-            }
-        } catch (error) {
-            console.error('Error al guardar perfil:', error);
-            btnGuardar.disabled = false;
-        }
-    });
-}
-
-// ==========================================
-// Módulo de Transacciones (Slice 2)
-// ==========================================
-async function cargarTransacciones() {
-    try {
-        // AUD-03: Ruta correcta hacia el backend Java
-        const response = await fetchProtected('/transacciones/usuario/transacciones', { method: 'GET' });
-        if (response.ok) {
-            const transacciones = await response.json();
-            renderizarTablaTransacciones(transacciones);
-        }
-    } catch (error) {
-        console.error('Error al cargar transacciones:', error);
-    }
-}
-
-const formTransaccion = document.getElementById('formTransaccion');
-if (formTransaccion) {
-    formTransaccion.addEventListener('submit', async (e) => {
-        e.preventDefault();
-
-        // AUD-03: Contrato de payload exacto
-        const payload = {
-            nombre_comercio: document.getElementById('transComercio').value,
-            monto_transaccion: parseFloat(document.getElementById('transMonto').value),
-            medio_pago: document.getElementById('transMedioPago').value
-        };
-
-        try {
-            const response = await fetchProtected('/transacciones/usuario/transacciones', {
-                method: 'POST',
-                body: JSON.stringify(payload)
-            });
-
-            if (response.ok) {
-                formTransaccion.reset();
-                cargarTransacciones(); // Recargar la tabla
-            } else {
-                alert('Error al guardar la transacción');
-            }
-        } catch (error) {
-            console.error('Error en el registro:', error);
-        }
-    });
-}
-
-function renderizarTablaTransacciones(transacciones) {
-    const tbody = document.getElementById('tablaTransaccionesBody');
-    if (!tbody) return;
-    tbody.innerHTML = '';
-
-    if (!transacciones || transacciones.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="3" class="text-center text-muted">Aún no hay transacciones registradas</td></tr>';
-        return;
-    }
-
-    transacciones.forEach(t => {
-        const tr = document.createElement('tr');
-        // Usamos los nombres correctos del backend (monto_transaccion, nombre_comercio)
-        tr.innerHTML = `
-            <td>${t.nombre_comercio || 'Desconocido'}</td>
-            <td><span class="badge bg-secondary">${t.medio_pago || 'N/A'}</span></td>
-            <td class="text-end fw-bold">$${t.monto_transaccion ? t.monto_transaccion.toFixed(2) : '0.00'}</td>
-        `;
-        tbody.appendChild(tr);
-    });
-}
-
-// ==========================================
-// Módulo de Análisis IA (Slice 3)
-// ==========================================
-const btnAnalizar = document.getElementById('btnAnalizar');
-if (btnAnalizar) {
-    btnAnalizar.addEventListener('click', async () => {
-        btnAnalizar.disabled = true;
-        btnAnalizar.innerText = 'Consultando a la IA...';
-
-        try {
-            // AUD-03: Ajustado al endpoint correcto del backend
-            const response = await fetchProtected('/analisis/predict', { method: 'POST' });
-
-            if (response.ok) {
-                const resultado = await response.json();
-                mostrarResultadosIA(resultado);
-            } else {
-                alert('No se pudo completar el análisis. Verifica que tengas transacciones registradas.');
-            }
-        } catch (error) {
-            console.error('Error al solicitar análisis:', error);
-        } finally {
-            btnAnalizar.disabled = false;
-            btnAnalizar.innerText = 'Generar Análisis Inteligente';
-        }
-    });
-}
-
-function mostrarResultadosIA(data) {
-    const contenedor = document.getElementById('resultadoContenedor');
-    if (!contenedor) return;
-
-    // AUD-02: Corregido de 'EN_RIESGO' a 'RIESGO' para alinear con el enum de Java
-    let badgeClass = 'bg-secondary';
-    if (data.perfil_financiero === 'SALUDABLE') badgeClass = 'bg-success';
-    else if (data.perfil_financiero === 'EN_OBSERVACION') badgeClass = 'bg-warning text-dark';
-    else if (data.perfil_financiero === 'RIESGO') badgeClass = 'bg-danger';
-
-    contenedor.classList.remove('d-none');
-    document.getElementById('iaPerfil').innerHTML = `<span class="badge ${badgeClass} p-2">${data.perfil_financiero || 'DESCONOCIDO'}</span>`;
-
-    if (data.resumen_gastos && data.resumen_gastos.length > 0) {
-        const listaRecomendaciones = data.resumen_gastos.map(r => `<li class="list-group-item bg-transparent text-start small">${r}</li>`).join('');
-        document.getElementById('iaRecomendaciones').innerHTML = `<ul class="list-group list-group-flush">${listaRecomendaciones}</ul>`;
-    } else {
-        document.getElementById('iaRecomendaciones').innerHTML = '<p class="text-muted small">No hay datos suficientes para recomendaciones.</p>';
-    }
-}
-</file>
-
-<file path="frontend/dashboard.html">
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FinanceAI - Dashboard</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-</head>
-<body class="bg-light">
-
-    <nav class="navbar navbar-dark bg-primary shadow-sm">
-        <div class="container-fluid">
-            <span class="navbar-brand mb-0 h1 fw-bold">FinanceAI - Panel Principal</span>
-            <button class="btn btn-outline-light btn-sm" id="btnLogout">Cerrar Sesión</button>
-        </div>
-    </nav>
-
-    <div class="container mt-5">
-        <div class="row justify-content-center">
-            <div class="col-md-8 text-center">
-                <div class="card shadow border-0 p-4">
-                    <h2 class="text-success mb-3">¡Bienvenido al Dashboard!</h2>
-                    <p class="text-muted">La interfaz ha cargado correctamente y la sesión está activa.</p>
-                    <hr>
-                    <div id="estadoConexion" class="alert alert-info">
-                        Verificando conexión con el backend...
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        console.log("¡El dashboard.html se cargó y ejecutó correctamente!");
-        
-        // Validar si el token existe
-        const token = localStorage.getItem('jwtToken');
-        const estadoDiv = document.getElementById('estadoConexion');
-        
-        if (!token || token === 'undefined') {
-            estadoDiv.className = "alert alert-danger";
-            estadoDiv.innerText = "Advertencia: No se encontró un token JWT válido en el almacenamiento local.";
-        } else {
-            estadoDiv.className = "alert alert-success";
-            estadoDiv.innerText = "Token JWT detectado con éxito. Listo para consumir la API.";
-        }
-
-        // Botón de salida
-        document.getElementById('btnLogout').addEventListener('click', () => {
-            localStorage.removeItem('jwtToken');
-            window.location.href = 'index.html';
-        });
-    </script>
-</body>
-</html>
-</file>
-
 <file path=".gitattributes">
 text=auto eol=lf
 backend/mvnw text eol=lf
@@ -4836,6 +4201,49 @@ joblib
 pydantic
 </file>
 
+<file path="frontend/README.md">
+# FinanceAI Frontend Flask
+
+Capa de presentación Flask para consumir el backend Spring Boot de FinanceAI. No accede directamente a PostgreSQL ni a FastAPI.
+
+## Funciones incluidas
+
+- Registro y login contra Spring Boot.
+- JWT guardado en la sesión de Flask.
+- Creación de perfil financiero después del registro.
+- Dashboard, alta y consulta de transacciones.
+- Vistas preparadas para análisis e historial.
+- Normalización temporal de respuestas camelCase/snake_case.
+- Manejo centralizado de 400, 401, 403, 404, 409, 5xx y timeouts.
+
+## Ejecución local
+
+```bash
+python -m venv .venv
+```
+
+Windows:
+
+```powershell
+.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+Copy-Item .env.example .env
+flask --app run.py run --debug
+```
+
+Define `FLASK_SECRET_KEY` y confirma que `BACKEND_API_URL` apunte a Spring Boot.
+
+## Pruebas
+
+```bash
+pytest -q
+```
+
+## Pendientes externos
+
+El análisis y el historial requieren que Spring Boot y el motor de IA resuelvan la ruta y el contrato de respuesta. La ausencia de `GET /api/v1/perfil` impide consultar el perfil existente, pero no bloquea su creación.
+</file>
+
 <file path="backend/src/main/java/com/nocountry/financeai/controller/AuthController.java">
 package com.nocountry.financeai.controller;
 
@@ -5276,136 +4684,6 @@ EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "app.jar"]
 </file>
 
-<file path="frontend/js/auth.js">
-// ==========================================
-// Módulo de Autenticación (Login y Registro)
-// ==========================================
-const BASE_URL = 'http://localhost:8080/api/v1';
-
-// ==========================================
-// 1. Manejo de Inicio de Sesión (Login)
-// ==========================================
-const formLogin = document.getElementById('formLogin');
-if (formLogin) {
-    formLogin.addEventListener('submit', async (e) => {
-        e.preventDefault();
-
-        const email = document.getElementById('loginEmail').value;
-        const password = document.getElementById('loginPassword').value;
-
-        try {
-            const response = await fetch(`${BASE_URL}/auth/login`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ email, password })
-            });
-
-            if (response.ok) {
-                const data = await response.json();
-
-                // El backend devuelve el JWT real en el campo 'token' (AuthResponse.token)
-                const token = data.token;
-
-                if (token) {
-                    localStorage.setItem('jwtToken', token);
-                    // AUD-18: Redirigir al dashboard unificado
-                    window.location.href = 'dashboard.html';
-                } else {
-                    alert('Error crítico: No se encontró el token de acceso en la respuesta.');
-                }
-            } else {
-                alert('Credenciales inválidas o error en el servidor.');
-            }
-        } catch (error) {
-            console.error('Error de red en login:', error);
-            alert('No se pudo conectar con el servidor backend.');
-        }
-    });
-}
-
-// ==========================================
-// 2. Manejo de Registro y Perfil (AUD-19)
-// ==========================================
-const formRegister = document.getElementById('formRegister');
-if (formRegister) {
-    formRegister.addEventListener('submit', async (e) => {
-        e.preventDefault();
-
-        // Estructura exigida por RegisterRequest en el backend Java
-        const registerPayload = {
-            nombre: document.getElementById('regNombre').value,
-            apellido: document.getElementById('regApellido').value,
-            email: document.getElementById('regEmail').value,
-            password: document.getElementById('regPassword').value,
-            fechaNacimiento: document.getElementById('regFechaNacimiento').value,
-            sexo: document.getElementById('regSexo').value,
-            estadoCivil: document.getElementById('regEstadoCivil').value,
-            numeroHijos: parseInt(document.getElementById('regNumeroHijos').value || 0)
-        };
-
-        // Datos del perfil financiero capturados en el mismo formulario (AUD-19)
-        const perfilPayload = {
-            ingresoMensual: parseFloat(document.getElementById('regIngresoMensual').value || 0),
-            lineaCredito: parseFloat(document.getElementById('regLineaCredito').value || 0),
-            empleoFormal: document.getElementById('regEmpleoFormal').checked
-        };
-
-        try {
-            // Paso A: Registrar usuario en el backend
-            const responseReg = await fetch(`${BASE_URL}/auth/register`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(registerPayload)
-            });
-
-            if (!responseReg.ok) {
-                alert('Error al registrar el usuario. Es posible que el correo ya esté en uso.');
-                return;
-            }
-
-            const dataReg = await responseReg.json();
-
-            // El backend devuelve el JWT real en el campo 'token' (AuthResponse.token)
-            const token = dataReg.token;
-
-            if (token) {
-                // Guardar token temporalmente para autenticar la petición de perfil
-                localStorage.setItem('jwtToken', token);
-
-                // Paso B: Crear automáticamente el perfil financiero (Solución a AUD-19)
-                try {
-                    const responsePerfil = await fetch(`${BASE_URL}/perfil`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${token}`
-                        },
-                        body: JSON.stringify(perfilPayload)
-                    });
-
-                    if (responsePerfil.ok) {
-                        localStorage.setItem('perfilCompletado', 'true');
-                    } else {
-                        console.warn('El usuario se creó pero hubo un problema al guardar el perfil financiero inicial.');
-                    }
-                } catch (perfilError) {
-                    console.error('Error de red al crear perfil financiero:', perfilError);
-                }
-
-                // Paso C: Redirigir al Dashboard (AUD-18)
-                window.location.href = 'dashboard.html';
-            } else {
-                alert('Registro exitoso, pero no se obtuvo el token. Inicia sesión manualmente.');
-                window.location.href = 'index.html';
-            }
-        } catch (error) {
-            console.error('Error general en el registro:', error);
-            alert('Ocurrió un error inesperado durante el proceso de registro.');
-        }
-    });
-}
-</file>
-
 <file path="backend/src/main/java/com/nocountry/financeai/controller/AnalisisController.java">
 package com.nocountry.financeai.controller;
 
@@ -5808,145 +5086,6 @@ public class AuthServiceImpl implements AuthService {
 }
 </file>
 
-<file path="frontend/index.html">
-<!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FinanceAI - Acceso</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css">
-</head>
-<body class="bg-light d-flex align-items-center" style="min-height: 100vh;">
-
-    <div class="container">
-        <div class="row justify-content-center">
-            <div class="col-md-6 col-lg-5">
-                <div class="card shadow-sm border-0">
-                    <div class="card-body p-4 p-md-5">
-                        <div class="text-center mb-4">
-                            <h2 class="text-primary fw-bold">FinanceAI</h2>
-                            <p class="text-muted">Tu asistente inteligente de salud financiera</p>
-                        </div>
-                        
-                        <div id="alertPlaceholder"></div>    
-                        <ul class="nav nav-pills nav-justified mb-4" id="authTabs" role="tablist">
-                            <li class="nav-item" role="presentation">
-                                <button class="nav-link active" id="login-tab" data-bs-toggle="pill" data-bs-target="#login" type="button" role="tab">Iniciar Sesión</button>
-                            </li>
-                            <li class="nav-item" role="presentation">
-                                <button class="nav-link" id="register-tab" data-bs-toggle="pill" data-bs-target="#register" type="button" role="tab">Registrarse</button>
-                            </li>
-                        </ul>
-
-                        <div class="tab-content" id="authTabsContent">
-                            <div class="tab-pane fade show active" id="login" role="tabpanel">
-                                <form id="formLogin">
-                                    <div class="mb-3">
-                                        <label class="form-label text-secondary">Correo Electrónico</label>
-                                        <input type="email" id="loginEmail" class="form-control" autocomplete="email" required>
-                                    </div>
-                                    <div class="mb-4">
-                                        <label class="form-label text-secondary">Contraseña</label>
-                                        <input type="password" id="loginPassword" class="form-control" autocomplete="current-password" required>
-                                    </div>
-                                    <button type="submit" class="btn btn-primary w-100 fw-bold">Ingresar</button>
-                                </form>
-                            </div>
-
-                            <div class="tab-pane fade" id="register" role="tabpanel">
-                                <form id="formRegister">
-                                    
-                                    <h6 class="text-primary border-bottom pb-2 mb-3 mt-2">Credenciales y Datos Personales</h6>
-                                    
-                                    <div class="row mb-2">
-                                        <div class="col">
-                                            <label class="form-label text-secondary small">Nombre</label>
-                                            <input type="text" id="regNombre" class="form-control form-control-sm" required>
-                                        </div>
-                                        <div class="col">
-                                            <label class="form-label text-secondary small">Apellido</label>
-                                            <input type="text" id="regApellido" class="form-control form-control-sm" required>
-                                        </div>
-                                    </div>
-                                    
-                                    <div class="mb-2">
-                                        <label class="form-label text-secondary small">Correo Electrónico</label>
-                                        <input type="email" id="regEmail" class="form-control form-control-sm" autocomplete="email" required>
-                                    </div>
-                                    
-                                    <div class="mb-3">
-                                        <label class="form-label text-secondary small">Contraseña</label>
-                                        <input type="password" id="regPassword" class="form-control form-control-sm" autocomplete="new-password" required>
-                                    </div>
-
-                                    <h6 class="text-primary border-bottom pb-2 mb-3">Perfil Demográfico Inicial</h6>
-                                    
-                                    <div class="row mb-2">
-                                        <div class="col">
-                                            <label class="form-label text-secondary small">Fecha Nacimiento</label>
-                                            <input type="date" id="regFechaNacimiento" class="form-control form-control-sm" required>
-                                        </div>
-                                        <div class="col">
-                                            <label class="form-label text-secondary small">Sexo</label>
-                                            <select id="regSexo" class="form-select form-select-sm" required>
-                                                <option value="MASCULINO">Masculino</option>
-                                                <option value="FEMININO">Femenino</option>
-                                            </select>
-                                        </div>
-                                    </div>
-
-                                    <div class="row mb-3">
-                                        <div class="col">
-                                            <label class="form-label text-secondary small">Estado Civil</label>
-                                            <select id="regEstadoCivil" class="form-select form-select-sm" required>
-                                                <option value="SOLTERO">Soltero/a</option>
-                                                <option value="CASADO">Casado/a</option>
-                                                <option value="DIVORCIADO">Divorciado/a</option>
-                                                <option value="VIUDO">Viudo/a</option>
-                                            </select>
-                                        </div>
-                                        <div class="col">
-                                            <label class="form-label text-secondary small">N° Hijos</label>
-                                            <input type="number" id="regNumeroHijos" class="form-control form-control-sm" value="0" min="0" required>
-                                        </div>
-                                    </div>
-
-                                    <h6 class="text-primary border-bottom pb-2 mb-3">Perfil Financiero Inicial (AUD-19)</h6>
-                                    
-                                    <div class="row mb-2">
-                                        <div class="col">
-                                            <label class="form-label text-secondary small">Ingreso Mensual ($)</label>
-                                            <input type="number" step="0.01" id="regIngresoMensual" class="form-control form-control-sm" required>
-                                        </div>
-                                        <div class="col">
-                                            <label class="form-label text-secondary small">Línea de Crédito ($)</label>
-                                            <input type="number" step="0.01" id="regLineaCredito" class="form-control form-control-sm" required>
-                                        </div>
-                                    </div>
-
-                                    <div class="mb-4 form-check">
-                                        <input type="checkbox" class="form-check-input" id="regEmpleoFormal">
-                                        <label class="form-check-label small text-secondary">¿Tienes empleo formal?</label>
-                                    </div>
-
-                                    <button type="submit" class="btn btn-success w-100 fw-bold">Crear Cuenta y Continuar</button>
-                                </form>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="js/auth.js"></script>
-</body>
-</html>
-</file>
-
 <file path="backend/src/main/resources/db/migration/V3__create_analysis_table.sql">
 CREATE TABLE historial_analisis (
     id BIGSERIAL PRIMARY KEY,
@@ -6320,15 +5459,6 @@ services:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    networks:
-      - financeai-net
-
-  # Mock obsoleto desplazado al puerto 8001
-  mock-api:
-    build: ./mock-api
-    container_name: financeai_mock_api
-    ports:
-      - "8001:8001"
     networks:
       - financeai-net
 
