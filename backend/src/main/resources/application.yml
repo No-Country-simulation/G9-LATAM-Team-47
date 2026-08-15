@@ -30,6 +30,10 @@ ia:
   api:
     url: ${IA_API_URL}
 
+app:
+  openapi:
+    server-url: ${APP_OPENAPI_SERVER_URL:http://localhost:8080}
+
 # Configuración de Logs para depuración local
 logging:
   level:

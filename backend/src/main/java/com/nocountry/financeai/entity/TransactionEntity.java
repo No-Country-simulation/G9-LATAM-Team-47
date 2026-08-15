@@ -8,7 +8,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "transactions")
+@Table(name = "transacciones") // <-- Corrección del nombre de la tabla
 @Getter
 @Setter
 @NoArgsConstructor
@@ -41,4 +41,3 @@ public class TransactionEntity {
     @JoinColumn(name = "usuario_id")
     private UserEntity usuario;
 }
-
