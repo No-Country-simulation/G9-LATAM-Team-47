@@ -3,7 +3,6 @@ package com.nocountry.financeai.controller;
 import com.nocountry.financeai.dto.response.HistorialAnalisisResponse;
 import com.nocountry.financeai.service.HistorialAnalisisService;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -42,5 +41,13 @@ public class HistorialAnalisisController {
             @AuthenticationPrincipal UserDetails userDetails
     ) {
         return historialAnalisisService.obtenerHistorialAutenticado(userDetails.getUsername());
+    }
+
+    // Nuevo: pull del análisis más reciente, sin recalcular. Usado por el botón "Ver mi análisis".
+    @GetMapping("/usuario/ultimo")
+    public HistorialAnalisisResponse obtenerMiUltimoAnalisis(
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        return historialAnalisisService.obtenerUltimoAutenticado(userDetails.getUsername());
     }
 }

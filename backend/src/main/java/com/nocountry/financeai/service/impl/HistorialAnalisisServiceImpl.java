@@ -17,6 +17,7 @@ import java.util.List;
 public class HistorialAnalisisServiceImpl implements HistorialAnalisisService {
     private final HistorialAnalisisRepository historialAnalisisRepository;
     private final UserRepository userRepository;
+
     @Override
     public List<HistorialAnalisisResponse> obtenerHistorialPorId(Long id) {
         return historialAnalisisRepository.findByUsuarioId(id)
@@ -27,12 +28,10 @@ public class HistorialAnalisisServiceImpl implements HistorialAnalisisService {
 
     @Override
     public List<HistorialAnalisisResponse> obtenerHistorial() {
-
         return historialAnalisisRepository.findAll()
                 .stream()
                 .map(this::convertirRespuesta)
                 .toList();
-
     }
 
     @Override
@@ -47,6 +46,19 @@ public class HistorialAnalisisServiceImpl implements HistorialAnalisisService {
                 .toList();
     }
 
+    @Override
+    public HistorialAnalisisResponse obtenerUltimoAutenticado(String email) {
+        UserEntity usuario = userRepository
+                .findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
+
+        HistorialAnalisisEntity ultimo = historialAnalisisRepository
+                .findFirstByUsuarioIdOrderByFechaAnalisisDesc(usuario.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("El usuario aún no tiene un análisis registrado"));
+
+        return convertirRespuesta(ultimo);
+    }
+
     public HistorialAnalisisResponse convertirRespuesta(HistorialAnalisisEntity historial) {
         return new HistorialAnalisisResponse(
                 historial.getPerfilFinanciero(),
@@ -58,5 +70,3 @@ public class HistorialAnalisisServiceImpl implements HistorialAnalisisService {
         );
     }
 }
-
-
