@@ -1,49 +1,44 @@
 package com.nocountry.financeai.entity;
-import com.fasterxml.jackson.annotation.JsonProperty;
+
 import com.nocountry.financeai.entity.enums.MedioPago;
 import jakarta.persistence.*;
+import lombok.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
-import lombok.*;
-
-
 @Entity
-@Table(name = "transacciones")
+@Table(name = "transactions")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@ToString
 public class TransactionEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, length = 10)
-    private String tipo;
-
-    @Column(length = 50)
-    private String categoria;
-
-    @Column(name = "nombre_comercio", nullable = false, length = 255)
+    @Column(name = "nombre_comercio")
     private String nombreComercio;
 
-    @Column(name ="monto_transaccion", nullable = false)
+    @Column(name = "monto_transaccion")
     private BigDecimal montoTransaccion;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "medio_pago", nullable = false, length = 20)
+    @Column(name = "medio_pago")
     private MedioPago medioPago;
 
-    @Column(nullable = false)
+    // Corrección TASK-042 (AUD-27): Se remueve 'nullable = false' para alinear con la BD
+    @Column(name = "tipo", length = 10)
+    private String tipo;
+
+    @Column(name = "fecha")
     private LocalDateTime fecha;
 
-    @ManyToOne
-    @JoinColumn(name = "usuario_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "usuario_id")
     private UserEntity usuario;
 }
 
