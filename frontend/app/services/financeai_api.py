@@ -88,6 +88,8 @@ class FinanceAIAPI:
         data = self.request("GET", "/analisis/usuario/historial")
         return [normalize_analysis(x) for x in (data or [])]
 
+    def get_latest_analysis(self):
+            return normalize_analysis(self.request("GET", "/analisis/usuario/ultimo"))
 
 def _pick(data, *keys, default=None):
     if not isinstance(data, dict):
