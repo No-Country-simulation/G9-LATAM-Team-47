@@ -5,6 +5,7 @@ import com.nocountry.financeai.entity.UserEntity;
 import com.nocountry.financeai.exception.ResourceNotFoundException;
 import com.nocountry.financeai.repository.PerfilFinancieroRepository;
 import com.nocountry.financeai.repository.UserRepository;
+import com.nocountry.financeai.service.PerfilFinancieroServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

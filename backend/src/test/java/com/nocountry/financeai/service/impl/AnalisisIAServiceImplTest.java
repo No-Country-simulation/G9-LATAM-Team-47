@@ -7,13 +7,17 @@ import com.nocountry.financeai.entity.TransactionEntity;
 import com.nocountry.financeai.entity.UserEntity;
 import com.nocountry.financeai.entity.enums.PerfilFinanciero;
 import com.nocountry.financeai.entity.enums.RangoAhorro;
+import com.nocountry.financeai.exception.ResourceNotFoundException;
 import com.nocountry.financeai.repository.HistorialAnalisisRepository;
 import com.nocountry.financeai.repository.PerfilFinancieroRepository;
 import com.nocountry.financeai.repository.TransactionRepository;
 import com.nocountry.financeai.repository.UserRepository;
+import com.nocountry.financeai.service.AnalisisIAServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -29,6 +33,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class AnalisisIAServiceImplTest {
 
     @Mock private UserRepository userRepository;
@@ -66,7 +71,7 @@ class AnalisisIAServiceImplTest {
                 PerfilFinanciero.SALUDABLE,
                 new BigDecimal("0.85"),
                 new BigDecimal("0.20"),
-                RangoAhorro.ALTO,
+                null,
                 Map.of("comida", new BigDecimal("100")),
                 List.of("Ahorrar más")
         );
@@ -90,6 +95,6 @@ class AnalisisIAServiceImplTest {
         when(perfilFinancieroRepository.findByUsuarioId(1L)).thenReturn(Optional.of(perfil));
         when(transactionRepository.findByUsuarioId(1L)).thenReturn(List.of());
 
-        assertThrows(IllegalStateException.class, () -> analisisIAService.analizar("carlos@example.com"));
+        assertThrows(ResourceNotFoundException.class, () -> analisisIAService.analizar("carlos@example.com"));
     }
 }

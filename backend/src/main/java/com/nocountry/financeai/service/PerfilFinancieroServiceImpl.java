@@ -1,4 +1,4 @@
-package com.nocountry.financeai.service.impl;
+package com.nocountry.financeai.service;
 
 import com.nocountry.financeai.dto.request.PerfilFinancieroRequest;
 import com.nocountry.financeai.dto.response.PerfilFinancieroResponse;

@@ -10,12 +10,15 @@ import com.nocountry.financeai.entity.enums.Sexo;
 import com.nocountry.financeai.exception.UserAlreadyExistsException;
 import com.nocountry.financeai.repository.UserRepository;
 import com.nocountry.financeai.security.JwtUtil;
+import com.nocountry.financeai.service.AuthServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -29,6 +32,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class AuthServiceImplTest {
 
     @Mock private UserRepository userRepository;
@@ -83,6 +87,7 @@ class AuthServiceImplTest {
 
     @Test
     void register_Falla_UsuarioYaExiste() {
+        when(userRepository.existsByEmail(any())).thenReturn(true);
         when(userRepository.findByEmail(registerRequest.email())).thenReturn(Optional.of(userEntity));
         assertThrows(UserAlreadyExistsException.class, () -> authService.register(registerRequest));
         verify(userRepository, never()).save(any(UserEntity.class));

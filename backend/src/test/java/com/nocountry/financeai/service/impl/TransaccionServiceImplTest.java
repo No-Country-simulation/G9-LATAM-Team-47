@@ -8,6 +8,7 @@ import com.nocountry.financeai.entity.enums.MedioPago;
 import com.nocountry.financeai.exception.ResourceNotFoundException;
 import com.nocountry.financeai.repository.TransactionRepository;
 import com.nocountry.financeai.repository.UserRepository;
+import com.nocountry.financeai.service.TransaccionServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -46,12 +47,12 @@ class TransaccionServiceImplTest {
         );
 
         transactionEntity = TransactionEntity.builder()
-                .idTransaccion(1L)
+                .id(1L)
                 .usuario(userEntity)
                 .nombreComercio("Supermercado")
                 .montoTransaccion(new BigDecimal("150.50"))
                 .medioPago(MedioPago.DEBITO)
-                .fechaTransaccion(LocalDateTime.now())
+                //.fechaTransaccion(LocalDateTime.now())
                 .build();
     }
 

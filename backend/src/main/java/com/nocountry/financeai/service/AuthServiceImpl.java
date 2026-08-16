@@ -1,4 +1,4 @@
-package com.nocountry.financeai.service.impl;
+package com.nocountry.financeai.service;
 
 import com.nocountry.financeai.dto.request.LoginRequest;
 import com.nocountry.financeai.dto.request.RegisterRequest;
