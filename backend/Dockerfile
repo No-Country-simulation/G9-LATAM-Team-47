@@ -6,7 +6,7 @@ COPY . .
 RUN sed -i 's/\r$//' mvnw
 
 RUN chmod +x mvnw
-RUN ./mvnw clean package -DskipTests
+RUN ./mvnw clean package
 FROM eclipse-temurin:21-jre
 COPY --from=build /app/target/*.jar app.jar
 EXPOSE 8080
