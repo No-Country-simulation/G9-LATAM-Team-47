@@ -49,12 +49,15 @@ services:
       - backend
     environment:
       FLASK_SECRET_KEY: ${FLASK_SECRET_KEY}
-      BACKEND_API_URL: http://backend:8080/api/v1
+      BACKEND_API_URL: http://host.docker.internal:8080/api/v1
       SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
       REQUEST_TIMEOUT: ${REQUEST_TIMEOUT:-10}
       FLASK_DEBUG: ${FLASK_DEBUG:-false}
     networks:
       - financeai-net
+
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
 volumes:
   postgres_data:
