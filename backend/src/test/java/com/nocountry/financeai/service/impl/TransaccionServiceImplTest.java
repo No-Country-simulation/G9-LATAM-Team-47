@@ -43,7 +43,8 @@ class TransaccionServiceImplTest {
         transactionRequest = new TransactionRequest(
                 "Supermercado", 
                 new BigDecimal("150.50"), 
-                MedioPago.DEBITO
+                MedioPago.DEBITO,
+                "General"
         );
 
         transactionEntity = TransactionEntity.builder()

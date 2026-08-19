@@ -35,7 +35,10 @@ public record TransactionRequest(
 
         @JsonProperty("medio_pago")
         @NotNull(message = "El medio de pago es obligatorio")
-        MedioPago medioPago
+        MedioPago medioPago,
 
+        @Schema(description = "Categoría de la transacción (generada por IA o ingresada manualmente)", example = "Alimentación")
+        @JsonProperty("categoria")
+                String categoria
 ) {
 }

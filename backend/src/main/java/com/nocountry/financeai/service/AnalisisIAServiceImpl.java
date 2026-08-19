@@ -101,7 +101,8 @@ public class AnalisisIAServiceImpl implements AnalisisIAService {
         return new TransactionRequest(
                 entity.getNombreComercio(),
                 entity.getMontoTransaccion(),
-                entity.getMedioPago()
+                entity.getMedioPago(),
+                entity.getCategoria()
         );
     }
 

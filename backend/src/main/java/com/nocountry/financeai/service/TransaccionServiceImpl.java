@@ -77,7 +77,8 @@ public class TransaccionServiceImpl implements TransaccionService {
                 transaccionGuardada.getNombreComercio(),
                 transaccionGuardada.getMontoTransaccion(),
                 transaccionGuardada.getMedioPago(),
-                transaccionGuardada.getFecha()
+                transaccionGuardada.getFecha(),
+                transaccionGuardada.getCategoria()
         );
     }
 
@@ -116,6 +117,32 @@ public class TransaccionServiceImpl implements TransaccionService {
     }
 
     @Override
+    public List<TransaccionResponse> obtenerTransaccionesPorCategoria(String email, String categoria) {
+        UserEntity usuario = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado con email: " + email));
+
+        List<TransactionEntity> transacciones;
+
+        // Si la categoría viene nula o vacía, devolvemos todas; si no, filtramos.
+        if (categoria != null && !categoria.isBlank()) {
+            transacciones = transactionRepository.findByUsuarioIdAndCategoria(usuario.getId(), categoria);
+        } else {
+            transacciones = transactionRepository.findByUsuarioId(usuario.getId());
+        }
+
+        return transacciones.stream()
+                // Asegúrate de mapear todos los campos requeridos por tu TransaccionResponse actual
+                .map(tx -> new TransaccionResponse(
+                        tx.getNombreComercio(),
+                        tx.getMontoTransaccion(),
+                        tx.getMedioPago(),
+                        tx.getFecha(),
+                        tx.getCategoria()
+                ))
+                .toList();
+    }
+
+    @Override
     public void eliminarTransaccion(String email, Long idTransaccion) {
         TransactionEntity transaccion = transactionRepository.findById(idTransaccion)
                 .orElseThrow(()-> new ResourceNotFoundException("Transaccion no encontrada"));
@@ -138,7 +165,8 @@ public class TransaccionServiceImpl implements TransaccionService {
                 transactionEntity.getNombreComercio(),
                 transactionEntity.getMontoTransaccion(),
                 transactionEntity.getMedioPago(),
-                transactionEntity.getFecha()
+                transactionEntity.getFecha(),
+                transactionEntity.getCategoria()
         );
     }
 }

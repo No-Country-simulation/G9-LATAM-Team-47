@@ -74,6 +74,9 @@ class FinanceAIAPI:
     def create_profile(self, payload):
         return self.request("POST", "/perfil", json=payload)
 
+    def get_my_profile(self):
+        return self.request("GET", "/usuarios/miPerfil")
+
     def list_transactions(self):
         data = self.request("GET", "/transacciones/usuario/transacciones")
         return [normalize_transaction(x) for x in (data or [])]

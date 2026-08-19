@@ -21,5 +21,7 @@ public interface TransaccionService {
 
     TransaccionResponse actualizarTransaccion(String email, Long idTransaccion, @Valid TransactionRequest transactionRequest);
 
+    List<TransaccionResponse> obtenerTransaccionesPorCategoria(String email, String categoria);
+
     void eliminarTransaccion(String email, Long idTransaccion);
 }

@@ -12,7 +12,6 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.servlet.function.EntityResponse;
 
 import java.util.List;
 import java.util.Map;
@@ -24,6 +23,7 @@ import java.util.Map;
         name = "Transacciones",
         description = "Registro y consulta de transacciones")
 public class TransactionController {
+
     private final UserService userService;
     private final TransaccionService transaccionService;
 
@@ -39,10 +39,14 @@ public class TransactionController {
     }
 
     @GetMapping("/usuario/transacciones")
-    public List<TransaccionResponse> obtenerMisTransacciones(
-            @AuthenticationPrincipal UserDetails userDetails
-    ) {
-        return transaccionService.obtenerTransaccionesAutenticado(userDetails.getUsername());
+    public ResponseEntity<List<TransaccionResponse>> obtenerTransaccionesAutenticado(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestParam(required = false) String categoria) {
+
+        List<TransaccionResponse> transacciones = transaccionService
+                .obtenerTransaccionesPorCategoria(userDetails.getUsername(), categoria);
+
+        return ResponseEntity.ok(transacciones);
     }
 
     @PatchMapping("/usuario/transacciones/{idTransaccion}")
@@ -61,4 +65,3 @@ public class TransactionController {
         return ResponseEntity.ok(Map.of("message", "Transaccion eliminada correctamente"));
     }
 }
-

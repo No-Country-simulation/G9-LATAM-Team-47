@@ -37,6 +37,9 @@ public class TransactionEntity {
     @Column(name = "fecha")
     private LocalDateTime fecha;
 
+    @Column(name = "categoria")
+    private String categoria;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "usuario_id")
     private UserEntity usuario;

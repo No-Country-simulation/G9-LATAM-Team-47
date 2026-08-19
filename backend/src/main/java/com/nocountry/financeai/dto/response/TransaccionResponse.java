@@ -28,9 +28,14 @@ public record TransaccionResponse(
         )
         @JsonProperty("medio_pago")
         MedioPago medioPago,
+
         @Schema(
                 description = "Fecha de la transaccion",
                 example = "2026-08-06T20:06:38.692Z"
         )
-        LocalDateTime fecha
+        LocalDateTime fecha,
+
+        @Schema(description = "Categoría de la transacción", example = "Alimentación")
+        @JsonProperty("categoria")
+        String categoria
 ) {}
