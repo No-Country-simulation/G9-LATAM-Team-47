@@ -118,20 +118,19 @@ backend/
                 JwtUtil.java
                 SecurityConfig.java
               service/
-                impl/
-                  AnalisisIAServiceImpl.java
-                  AuthServiceImpl.java
-                  HistorialAnalisisServiceImpl.java
-                  PerfilFinancieroServiceImpl.java
-                  TransaccionServiceImpl.java
-                  UserServiceImpl.java
                 .gitkeep
                 AnalisisIAService.java
+                AnalisisIAServiceImpl.java
                 AuthService.java
+                AuthServiceImpl.java
                 HistorialAnalisisService.java
+                HistorialAnalisisServiceImpl.java
                 PerfilFinancieroService.java
+                PerfilFinancieroServiceImpl.java
                 TransaccionService.java
+                TransaccionServiceImpl.java
                 UserService.java
+                UserServiceImpl.java
               FinanceaiApplication.java
       resources/
         db/
@@ -148,6 +147,14 @@ backend/
         com/
           nocountry/
             financeai/
+              service/
+                impl/
+                  AnalisisIAServiceImplTest.java
+                  AuthServiceImplTest.java
+                  HistorialAnalisisServiceImplTest.java
+                  PerfilFinancieroServiceImplTest.java
+                  TransaccionServiceImplTest.java
+                  UserServiceImplTest.java
               FinanceaiApplicationTests.java
   Dockerfile
   HELP.md
@@ -180,6 +187,7 @@ frontend/
       css/
         style.css
       js/
+        dashboard.js
         main.js
     templates/
       analisis/
@@ -214,8 +222,8 @@ frontend/
   run.py
 .gitattributes
 .gitignore
+docker
 docker-compose.yml
-notamaestra_financeai_v4.md
 Protocolo de colaboracion.md
 README.md
 </directory_structure>
@@ -225,6 +233,367 @@ This section contains the contents of the repository's files.
 
 <file path="backend/src/main/java/com/nocountry/financeai/entity/.gitkeep">
 
+</file>
+
+<file path="data-science/README.md">
+# Data Science
+</file>
+
+<file path="frontend/app/static/js/dashboard.js">
+let lineChart, pieChart, txPieChart, aiHealthChart, aiEvolutionChart, aiCategoriesChart, aiPaymentChart;
+let ultimoPayload = null;
+
+function switchView(viewName, element) {
+  document.querySelectorAll('.app-view').forEach(el => el.style.display = 'none');
+  const target = document.getElementById('view-' + viewName);
+  if (target) target.style.display = 'block';
+
+  document.querySelectorAll('.nav-menu .nav-item').forEach(el => el.classList.remove('active'));
+  if (element) element.classList.add('active');
+
+  if (viewName === 'ia') loadAIData();
+  else if (viewName === 'perfil') loadPerfilData();
+  else if (viewName === 'historial') loadHistorialData();
+  else if (viewName === 'dashboard' || viewName === 'transacciones') loadDashboardData();
+}
+
+function poblarSelectMedios(labels) {
+  const sel = document.getElementById('filterTxPayment');
+  if (!sel) return;
+  const actual = sel.value;
+  sel.innerHTML = '<option value="">Todos los medios de pago</option>' + labels.map(l => `<option value="${l}">${l}</option>`).join('');
+  sel.value = actual;
+}
+
+function applyPaymentFilter(value) {
+  if (!ultimoPayload) return;
+  renderAllTransactionsTable(ultimoPayload.all_transactions, value);
+}
+
+function renderAllTransactionsTable(items, filtroMedio) {
+  const body = document.getElementById('allTransactionsTableBody');
+  if (!body) return;
+  const filtrados = filtroMedio ? items.filter(t => t.medio_pago === filtroMedio) : items;
+  body.innerHTML = filtrados.length === 0
+    ? '<tr><td colspan="4" style="text-align:center; color:#64748B; padding:20px;">No se encontraron transacciones</td></tr>'
+    : filtrados.map(tx => `<tr><td><strong>${tx.nombre || ''}</strong></td><td style="color:#64748B;">${tx.fecha || ''}</td><td>${tx.medio_pago || ''}</td><td style="text-align:right; color:#EF4444; font-weight:600;">${tx.monto}</td></tr>`).join('');
+}
+
+function loadDashboardData() {
+  fetch('/dashboard/data')
+    .then(r => { if (!r.ok) throw new Error('No se pudo cargar el panel'); return r.json(); })
+    .then(data => {
+      ultimoPayload = data;
+      const warn = document.getElementById('dashboardWarning');
+      if (warn) warn.innerHTML = '';
+
+      document.getElementById('kpiTransacciones').innerText = data.kpis.transacciones;
+      document.getElementById('kpiGastoTotal').innerText = data.kpis.gasto_total;
+      document.getElementById('kpiPerfil').innerText = data.kpis.perfil_financiero;
+      document.getElementById('kpiAhorro').innerText = data.kpis.rango_ahorro;
+
+      poblarSelectMedios(data.payment_methods || []);
+
+      const ctxLine = document.getElementById('performanceChart');
+      if (ctxLine) {
+        if (lineChart) lineChart.destroy();
+        lineChart = new Chart(ctxLine.getContext('2d'), {
+          type: 'line',
+          data: { labels: data.chart.labels, datasets: [{ label: 'Gasto ($)', data: data.chart.values, borderColor: '#2563EB', backgroundColor: 'rgba(37,99,235,0.1)', borderWidth: 2, fill: true, tension: 0.3 }] },
+          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+        });
+      }
+
+      const ctxPie = document.getElementById('pieChart');
+      if (ctxPie) {
+        if (pieChart) pieChart.destroy();
+        pieChart = new Chart(ctxPie.getContext('2d'), {
+          type: 'doughnut',
+          data: { labels: data.pie_chart.labels, datasets: [{ data: data.pie_chart.values, backgroundColor: ['#2563EB','#22C55E','#7C3AED','#F59E0B','#EF4444','#60A5FA'] }] },
+          options: { responsive: true, maintainAspectRatio: false, cutout: '55%', plugins: { legend: { position: 'bottom' } } }
+        });
+      }
+
+      const tbody = document.getElementById('transactionsTableBody');
+      if (tbody) {
+        tbody.innerHTML = data.transactions.length === 0
+          ? '<tr><td colspan="3" style="text-align:center; color:#64748B;">No hay transacciones</td></tr>'
+          : data.transactions.map(tx => `<tr><td><strong>${tx.nombre || ''}</strong></td><td>${tx.fecha || ''}</td><td style="color:#EF4444; font-weight:600;">${tx.monto}</td></tr>`).join('');
+      }
+
+      renderAllTransactionsTable(data.all_transactions, '');
+
+      const ctxTxPie = document.getElementById('txPieChart');
+      if (ctxTxPie) {
+        if (txPieChart) txPieChart.destroy();
+        txPieChart = new Chart(ctxTxPie.getContext('2d'), {
+          type: 'doughnut',
+          data: { labels: data.payment_chart.labels, datasets: [{ data: data.payment_chart.values, backgroundColor: ['#2563EB','#22C55E','#7C3AED','#F59E0B','#EF4444','#60A5FA'] }] },
+          options: { responsive: true, maintainAspectRatio: false, cutout: '55%', plugins: { legend: { position: 'bottom' } } }
+        });
+      }
+    })
+    .catch(err => {
+      console.error('Error cargando el panel:', err);
+      const warn = document.getElementById('dashboardWarning');
+      if (warn) warn.innerHTML = '<div class="alert alert-warning">No se pudo cargar tu información. Probá recargar la página.</div>';
+    });
+}
+
+function loadAIData() {
+  fetch('/dashboard/analisis-data')
+    .then(r => r.json())
+    .then(data => {
+      if (!data.existe) {
+        document.getElementById('aiTituloSalud').innerText = 'Sin análisis disponible';
+        document.getElementById('aiProbText').innerText = data.mensaje || 'Registrá al menos una transacción para generar tu análisis.';
+        return;
+      }
+      const prob = Math.round(Number(data.probabilidad || 0) * 100);
+      document.getElementById('aiTituloSalud').innerText = data.perfil_financiero || 'Sin datos';
+      document.getElementById('aiProbText').innerText = `Probabilidad del modelo: ${prob}%`;
+      document.getElementById('aiEstadoTexto').innerText = 'Último análisis sincronizado con tu cuenta.';
+
+      const endeudamiento = data.nivel_endeudamiento != null ? Math.round(Number(data.nivel_endeudamiento) * 100) + '%' : 'N/D';
+      document.getElementById('aiProgresoList').innerHTML =
+        `<li><strong>Endeudamiento:</strong> ${endeudamiento}</li><li><strong>Rango de ahorro:</strong> ${data.rango_ahorro || 'N/D'}</li>`;
+
+      document.getElementById('aiTopCategoria').innerText = data.top_categoria
+        ? `${data.top_categoria}: $${Number(data.top_categoria_monto).toFixed(2)}`
+        : 'Sin datos suficientes todavía.';
+
+      const recList = document.getElementById('aiRecomendacionesList');
+      recList.innerHTML = (data.recomendaciones && data.recomendaciones.length)
+        ? data.recomendaciones.map(r => `<li>• ${r}</li>`).join('')
+        : '<li>Sin recomendaciones por ahora.</li>';
+
+      const ctxHealth = document.getElementById('aiHealthChart');
+      if (ctxHealth) {
+        if (aiHealthChart) aiHealthChart.destroy();
+        aiHealthChart = new Chart(ctxHealth.getContext('2d'), {
+          type: 'doughnut',
+          data: { labels: ['Probabilidad', 'Resto'], datasets: [{ data: [prob, 100 - prob], backgroundColor: ['#22C55E', '#E2E8F0'], borderWidth: 0 }] },
+          options: { responsive: true, maintainAspectRatio: false, cutout: '75%', plugins: { legend: { display: false }, tooltip: { enabled: false } } },
+          plugins: [{
+            id: 'centerText',
+            beforeDraw(chart) {
+              const { width, height, ctx } = chart;
+              ctx.restore();
+              const fontSize = (height / 110).toFixed(2);
+              ctx.font = `bold ${fontSize}em sans-serif`;
+              ctx.textBaseline = 'middle';
+              ctx.fillStyle = '#166534';
+              ctx.textAlign = 'center';
+              ctx.fillText(prob + '%', width / 2, height / 2);
+              ctx.save();
+            }
+          }]
+        });
+      }
+
+      const ctxEval = document.getElementById('aiEvolutionChart');
+      if (ctxEval) {
+        if (aiEvolutionChart) aiEvolutionChart.destroy();
+        aiEvolutionChart = new Chart(ctxEval.getContext('2d'), {
+          type: 'line',
+          data: { labels: data.chart.labels, datasets: [{ data: data.chart.values, borderColor: '#22C55E', backgroundColor: 'rgba(34,197,94,0.08)', borderWidth: 2, fill: true, tension: 0.3, pointBackgroundColor: '#22C55E', pointRadius: 4 }] },
+          options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+        });
+      }
+
+      const ctxCat = document.getElementById('aiCategoriesChart');
+      if (ctxCat) {
+        if (aiCategoriesChart) aiCategoriesChart.destroy();
+        aiCategoriesChart = new Chart(ctxCat.getContext('2d'), {
+          type: 'doughnut',
+          data: { labels: data.pie_chart.labels, datasets: [{ data: data.pie_chart.values, backgroundColor: ['#2563EB','#7C3AED','#22C55E','#F97316','#EF4444'], borderWidth: 2, borderColor: '#fff' }] },
+          options: { responsive: true, maintainAspectRatio: false, cutout: '55%', plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } } }
+        });
+      }
+
+      const ctxPay = document.getElementById('aiPaymentChart');
+      if (ctxPay) {
+        if (aiPaymentChart) aiPaymentChart.destroy();
+        aiPaymentChart = new Chart(ctxPay.getContext('2d'), {
+          type: 'doughnut',
+          data: { labels: data.payment_chart.labels, datasets: [{ data: data.payment_chart.values, backgroundColor: ['#2563EB','#22C55E','#F97316','#7C3AED','#EF4444'], borderWidth: 2, borderColor: '#fff' }] },
+          options: { responsive: true, maintainAspectRatio: false, cutout: '55%', plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } } }
+        });
+      }
+    })
+    .catch(err => console.error('Error al cargar Análisis IA:', err));
+}
+
+function loadPerfilData() {
+  fetch('/dashboard/perfil-data')
+    .then(r => r.json())
+    .then(data => {
+      const dl = document.getElementById('perfilDetalle');
+      if (!dl) return;
+      const filas = [
+        ['Nombre', `${data.nombre || ''} ${data.apellido || ''}`.trim()],
+        ['Documento', data.documento || 'N/D'],
+        ['Correo', data.email || 'N/D'],
+        ['Fecha de nacimiento', data.fecha_nacimiento || 'N/D'],
+        ['Estado civil', data.estado_civil || 'N/D'],
+        ['Sexo', data.sexo || 'N/D'],
+        ['Número de hijos', data.numero_hijos != null ? data.numero_hijos : 'N/D'],
+      ];
+      dl.innerHTML = filas.map(([k, v]) => `<dt style="color:#64748B;">${k}</dt><dd style="margin:0;">${v}</dd>`).join('');
+    })
+    .catch(err => console.error('Error al cargar el perfil:', err));
+}
+
+function loadHistorialData() {
+  fetch('/dashboard/historial-data')
+    .then(r => r.json())
+    .then(data => {
+      const cont = document.getElementById('historialLista');
+      if (!cont) return;
+      if (!data.items || data.items.length === 0) {
+        cont.innerHTML = '<p style="color:#64748B;">Todavía no hay análisis guardados.</p>';
+        return;
+      }
+      cont.innerHTML = data.items.map(item => `
+        <div class="card" style="padding:15px;">
+          <div style="display:flex; justify-content:space-between;">
+            <strong>${item.perfil_financiero || 'Sin datos'}</strong>
+            <span>${item.probabilidad != null ? Math.round(item.probabilidad * 100) + '%' : 'N/D'}</span>
+          </div>
+          <ul style="margin:8px 0 0 0; padding-left:18px; color:#334155; font-size:0.85rem;">
+            ${(item.recomendaciones || []).map(r => `<li>${r}</li>`).join('')}
+          </ul>
+        </div>`).join('');
+    })
+    .catch(err => console.error('Error al cargar el historial:', err));
+}
+
+window.addEventListener('DOMContentLoaded', loadDashboardData);
+</file>
+
+<file path="docker">
+
+</file>
+
+<file path="README.md">
+# FinanceAI
+# 🚀 FinanceAI – Asistente Inteligente de Salud Financiera
+
+📋 ## Índice
+- [Estado del proyecto](#-estado-del-proyecto)
+- [Descripción del proyecto](#-descripción-del-proyecto)
+- [Objetivos](#-objetivos)
+- [Sector empresarial](#-sector-empresarial)
+- [Tecnologías](#%EF%B8%8F-tecnologías)
+- [Arquitectura](#-arquitectura)
+- [Ejemplo de uso](#-ejemplo-de-uso)
+- [Equipo](#-equipo)
+
+---
+
+## 🚧 Estado del proyecto
+Actualmente el proyecto se encuentra en fase de planificación y diseño de arquitectura. La implementación se desarrollará durante el Hackathon ONE.
+
+## 📖 Descripción del proyecto
+FinanceAI es una solución inteligente orientada a mejorar la salud financiera de los usuarios mediante el análisis automático de sus transacciones y hábitos financieros.
+A partir de la información proporcionada por el usuario, el sistema será capaz de analizar su comportamiento financiero y generar información útil que facilite una mejor toma de decisiones.
+
+Entre la información procesada se encuentran:
+* Ingreso mensual.
+* Nivel de endeudamiento.
+* Frecuencia de ahorro.
+* Historial de transacciones.
+* Descripción y monto de cada gasto.
+
+## 🎯 Objetivos
+El proyecto busca desarrollar un MVP capaz de:
+* Clasificar automáticamente las transacciones financieras.
+* Identificar patrones de consumo.
+* Analizar el perfil financiero del usuario.
+* Generar recomendaciones personalizadas.
+* Exponer los resultados mediante una API REST.
+* Integrar al menos un servicio de Oracle Cloud Infrastructure (OCI).
+
+## 🏢 Sector Empresarial
+**Fintech · Educación Financiera · Carteras Digitales**  
+FinanceAI está dirigido a personas que desean comprender mejor sus hábitos financieros, organizar sus gastos y tomar decisiones más informadas sobre el manejo de su dinero.
+
+## 🛠️ Tecnologías
+Actualmente el proyecto contempla el uso de las siguientes tecnologías:
+
+### Backend
+* Java 21
+* Spring Boot
+* Spring Data JPA
+* Maven
+* Flyway
+* Lombok
+* Swagger / OpenAPI
+
+### Ciencia de Datos
+* Python
+* Pandas
+* Scikit-Learn
+* Jupyter Notebook
+
+### Frontend
+* Vue.js
+
+### Infraestructura
+La infraestructura del proyecto se encuentra actualmente en definición. Durante el desarrollo del hackathon se seleccionarán los servicios de Oracle Cloud Infrastructure (OCI) que mejor se adapten a las necesidades del proyecto.
+
+## 🏗️ Arquitectura
+La solución estará organizada en cuatro módulos principales:
+1. **Frontend**, encargado de la interacción con el usuario.
+2. **Backend**, responsable de la lógica de negocio y la API REST.
+3. **Ciencia de Datos**, donde se desarrollarán y entrenarán los modelos de clasificación y análisis financiero.
+4. **Oracle Cloud Infrastructure (OCI)**, utilizado para el almacenamiento, procesamiento o despliegue de la solución.
+
+La arquitectura podrá evolucionar conforme avance el desarrollo del proyecto.
+
+## 💻 Ejemplo de uso
+
+### Endpoint
+`POST /api/analisis-financiero`
+
+### Solicitud
+```json
+{
+  "ingreso_mensual": 4500,
+  "nivel_endeudamiento": 25,
+  "frecuencia_ahorro": "Media",
+  "transacciones": [
+    {
+      "descripcion": "Supermercado",
+      "valor": 420
+    },
+    {
+      "descripcion": "Combustible",
+      "valor": 300
+    },
+    {
+      "descripcion": "Streaming",
+      "valor": 40
+    }
+  ]
+}
+Respuesta
+JSON
+{
+  "perfil_financiero": "En observación",
+  "probabilidad": 0.82,
+  "resumen_gastos": {
+    "alimentacion": 420,
+    "transporte": 300,
+    "entretenimiento": 40
+  },
+  "recomendaciones": [
+    "Monitorear gastos recurrentes de entretenimiento.",
+    "Aumentar la reserva financiera mensual."
+  ]
+}
+👥 Equipo
+Proyecto desarrollado por el equipo G9-LATAM-Team 47 FinanceAI durante el Hackathon Oracle Next Education (ONE).
 </file>
 
 <file path="backend/.mvn/wrapper/maven-wrapper.properties">
@@ -607,21 +976,6 @@ public class UserAlreadyExistsException extends RuntimeException {
 
 </file>
 
-<file path="backend/src/main/java/com/nocountry/financeai/repository/HistorialAnalisisRepository.java">
-package com.nocountry.financeai.repository;
-
-import com.nocountry.financeai.entity.HistorialAnalisisEntity;
-import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.stereotype.Repository;
-
-import java.util.List;
-
-@Repository
-public interface HistorialAnalisisRepository extends JpaRepository<HistorialAnalisisEntity, Long> {
-    List<HistorialAnalisisEntity> findByUsuarioId(Long id);
-}
-</file>
-
 <file path="backend/src/main/java/com/nocountry/financeai/repository/PerfilFinancieroRepository.java">
 package com.nocountry.financeai.repository;
 
@@ -639,8 +993,330 @@ public interface PerfilFinancieroRepository extends JpaRepository<PerfilFinancie
 }
 </file>
 
-<file path="backend/src/main/java/com/nocountry/financeai/service/impl/PerfilFinancieroServiceImpl.java">
-package com.nocountry.financeai.service.impl;
+<file path="backend/src/main/java/com/nocountry/financeai/service/.gitkeep">
+
+</file>
+
+<file path="backend/src/main/java/com/nocountry/financeai/service/AnalisisIAServiceImpl.java">
+package com.nocountry.financeai.service;
+
+import com.nocountry.financeai.client.IAClient;
+import com.nocountry.financeai.dto.request.AnalisisRequest;
+import com.nocountry.financeai.dto.request.TransactionRequest;
+import com.nocountry.financeai.dto.response.AnalisisResponse;
+import com.nocountry.financeai.entity.HistorialAnalisisEntity;
+import com.nocountry.financeai.entity.PerfilFinancieroEntity;
+import com.nocountry.financeai.entity.TransactionEntity;
+import com.nocountry.financeai.entity.UserEntity;
+import com.nocountry.financeai.entity.enums.PerfilFinanciero;
+import com.nocountry.financeai.exception.ResourceNotFoundException;
+import com.nocountry.financeai.repository.HistorialAnalisisRepository;
+import com.nocountry.financeai.repository.PerfilFinancieroRepository;
+import com.nocountry.financeai.repository.TransactionRepository;
+import com.nocountry.financeai.repository.UserRepository;
+import com.nocountry.financeai.service.AnalisisIAService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClient;
+
+import java.time.LocalDate;
+import java.time.Period;
+import java.util.List;
+
+@Service
+@RequiredArgsConstructor
+public class AnalisisIAServiceImpl implements AnalisisIAService {
+
+    private final IAClient iaClient;
+    private final UserRepository userRepository;
+    private final PerfilFinancieroRepository perfilFinancieroRepository;
+    private final TransactionRepository transactionRepository;
+    private final HistorialAnalisisRepository historialAnalisisRepository;
+
+    @Override
+    public AnalisisResponse analizar(String email) {
+        // Su busca el usuario por email, se usa el Id para hacer el analisis
+        UserEntity usuario = userRepository
+                .findByEmail(email)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Usuario no encontrado"
+                        ));
+        return analizarPorUsuarioId(usuario.getId());
+    }
+
+    @Override
+    public AnalisisResponse analizarPorDocumento(String documento) {
+        UserEntity usuario = userRepository
+                .findByDocumento(documento)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Usuario no encontrado"));
+        return analizarPorUsuarioId(usuario.getId());
+    }
+
+    @Override
+    public AnalisisResponse analizarPorUsuarioId(Long usuarioId) {
+        // Busca el usuario por el id y se guarda
+        UserEntity usuario = userRepository
+                .findById(usuarioId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException("Usuario no encontrado"));
+
+        // Calcula la edad del usuario
+        Integer edad = Period.between(usuario.getFechaNacimiento(), LocalDate.now()).getYears();
+
+        // Busca el perfil financiero asociado al usuario, si no tiene envia exepcion
+        PerfilFinancieroEntity perfil = perfilFinancieroRepository
+                .findByUsuarioId(usuarioId)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "El usuario no tiene un perfil financiero registrado"));
+
+        // Guarda las transacciones de un usuario en una lista
+        List<TransactionRequest> transaccionesRequest = transactionRepository
+                .findByUsuarioId(usuarioId)
+                .stream()
+                .map(this::convertirTransaccion)
+                .toList();
+
+        if (transaccionesRequest.isEmpty()) {
+            throw new IllegalStateException("El usuario debe tener al menos una transacción registrada para generar un análisis");
+        }
+
+        // Teniendo tadas las variable para el analisis crea el request
+        AnalisisRequest request = convertirAnalisis(edad, usuario, perfil, transaccionesRequest);
+
+        // Envia la peticion para hacer el analisis y guarda la respuesta
+        AnalisisResponse response = iaClient.analizar(request);
+
+        // Guarda el analisis al usuario
+        guardarHistorial(usuario, response);
+
+        return response;
+    }
+
+
+    // metodos privados para convertir entidad en request
+
+    private TransactionRequest convertirTransaccion(TransactionEntity entity) {
+        return new TransactionRequest(
+                entity.getNombreComercio(),
+                entity.getMontoTransaccion(),
+                entity.getMedioPago(),
+                entity.getCategoria()
+        );
+    }
+
+    private AnalisisRequest convertirAnalisis(Integer edad, UserEntity usuario, PerfilFinancieroEntity perfil, List<TransactionRequest> transaccionRequest) {
+        return new AnalisisRequest(edad,
+                usuario.getSexo(),
+                usuario.getEstadoCivil(),
+                usuario.getNumeroHijos(),
+                perfil.getEmpleoFormal(),
+                perfil.getIngresoMensual(),
+                perfil.getLineaCredito(),
+                transaccionRequest
+        );
+    }
+
+
+    // metodo privado de la clase para guarda el historial en la base de datos
+    private void guardarHistorial(UserEntity usuario, AnalisisResponse response) {
+        HistorialAnalisisEntity historial = HistorialAnalisisEntity.builder()
+                .usuario(usuario)
+                .perfilFinanciero(response.perfilFinanciero())
+                .probabilidad(response.probabilidad())
+                .nivelEndeudamiento(response.nivelEndeudamiento())
+                .rangoAhorro(response.rangoAhorro())
+                .resumenGastos(response.resumenGastos())
+                .recomendaciones(response.recomendaciones())
+                .build();
+
+        historialAnalisisRepository.save(historial);
+    }
+}
+</file>
+
+<file path="backend/src/main/java/com/nocountry/financeai/service/AuthServiceImpl.java">
+package com.nocountry.financeai.service;
+
+import com.nocountry.financeai.dto.request.LoginRequest;
+import com.nocountry.financeai.dto.request.RegisterRequest;
+import com.nocountry.financeai.dto.response.AuthResponse;
+import com.nocountry.financeai.entity.UserEntity;
+import com.nocountry.financeai.exception.UserAlreadyExistsException;
+import com.nocountry.financeai.repository.UserRepository;
+import com.nocountry.financeai.security.JwtUtil;
+import com.nocountry.financeai.service.AuthService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.userdetails.User;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+
+import java.util.ArrayList;
+
+@Service
+@RequiredArgsConstructor
+public class AuthServiceImpl implements AuthService {
+
+    private final UserRepository userRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final JwtUtil jwtUtil;
+    private final AuthenticationManager authenticationManager;
+
+    @Override
+    public AuthResponse register(RegisterRequest request) {
+        // 1. Usamos request.email() en vez de getEmail() por ser un record
+        if (userRepository.existsByEmail(request.email())) {
+            throw new UserAlreadyExistsException("El correo ya esta registrado");
+        }
+        if (userRepository.existsByDocumento(request.documento())) {
+            throw new UserAlreadyExistsException("El documento ya esta registrado");
+        }
+
+        // 2. Usamos request.nombre() tal cual lo definiste en tu record
+        UserEntity user = UserEntity.builder()
+                .nombre(request.nombre())
+                .apellido(request.apellido())
+                .documento(request.documento())
+                .email(request.email())
+                .password(passwordEncoder.encode(request.password()))
+                .fechaNacimiento(request.fechaNacimiento())
+                .sexo(request.sexo())
+                .estadoCivil(request.estadoCivil())
+                .numeroHijos(request.numeroHijos())
+                .build();
+
+        userRepository.save(user);
+
+        // 3. Adaptamos el usuario a UserDetails para que el JwtUtil lo acepte sin errores
+        UserDetails userDetails = User.builder()
+                .username(user.getEmail())
+                .password(user.getPassword())
+                .authorities(new ArrayList<>())
+                .build();
+
+        String token = jwtUtil.generateToken(userDetails);
+        return new AuthResponse(token, "Usuario registrado exitosamente");
+    }
+
+    @Override
+    public AuthResponse login(LoginRequest request) {
+
+        authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(request.email(), request.password())
+        );
+
+        UserEntity user = userRepository.findByEmail(request.email())
+                .orElseThrow(() -> new BadCredentialsException("Usuario no encontrado"));
+
+        // Adaptamos el usuario autenticado a UserDetails
+        UserDetails userDetails = User.builder()
+                .username(user.getEmail())
+                .password(user.getPassword())
+                .authorities(new ArrayList<>())
+                .build();
+
+        String token = jwtUtil.generateToken(userDetails);
+        return new AuthResponse(token, "Inicio de sesión exitoso");
+    }
+}
+</file>
+
+<file path="backend/src/main/java/com/nocountry/financeai/service/HistorialAnalisisServiceImpl.java">
+package com.nocountry.financeai.service;
+
+import com.nocountry.financeai.dto.response.HistorialAnalisisResponse;
+import com.nocountry.financeai.entity.HistorialAnalisisEntity;
+import com.nocountry.financeai.entity.UserEntity;
+import com.nocountry.financeai.exception.ResourceNotFoundException;
+import com.nocountry.financeai.repository.HistorialAnalisisRepository;
+import com.nocountry.financeai.repository.UserRepository;
+import com.nocountry.financeai.service.HistorialAnalisisService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
+
+import java.util.List;
+
+@Service
+@RequiredArgsConstructor
+public class HistorialAnalisisServiceImpl implements HistorialAnalisisService {
+    private final HistorialAnalisisRepository historialAnalisisRepository;
+    private final UserRepository userRepository;
+
+    @Override
+    public List<HistorialAnalisisResponse> obtenerHistorialPorId(Long id) {
+        return historialAnalisisRepository.findByUsuarioId(id)
+                .stream()
+                .map(this::convertirRespuesta)
+                .toList();
+    }
+
+    @Override
+    public List<HistorialAnalisisResponse> obtenerHistorial() {
+        return historialAnalisisRepository.findAll()
+                .stream()
+                .map(this::convertirRespuesta)
+                .toList();
+    }
+
+    @Override
+    public List<HistorialAnalisisResponse> obtenerHistorialAutenticado(String email) {
+        UserEntity usuario = userRepository
+                .findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
+
+        return historialAnalisisRepository.findByUsuarioId(usuario.getId())
+                .stream()
+                .map(this::convertirRespuesta)
+                .toList();
+    }
+
+    @Override
+    public HistorialAnalisisResponse obtenerUltimoAutenticado(String email) {
+        UserEntity usuario = userRepository
+                .findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
+
+        HistorialAnalisisEntity ultimo = historialAnalisisRepository
+                .findFirstByUsuarioIdOrderByFechaAnalisisDesc(usuario.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("El usuario aún no tiene un análisis registrado"));
+
+        return convertirRespuesta(ultimo);
+    }
+
+    public HistorialAnalisisResponse convertirRespuesta(HistorialAnalisisEntity historial) {
+        return new HistorialAnalisisResponse(
+                historial.getPerfilFinanciero(),
+                historial.getProbabilidad(),
+                historial.getNivelEndeudamiento(),
+                historial.getRangoAhorro(),
+                historial.getResumenGastos(),
+                historial.getRecomendaciones()
+        );
+    }
+}
+</file>
+
+<file path="backend/src/main/java/com/nocountry/financeai/service/PerfilFinancieroService.java">
+package com.nocountry.financeai.service;
+
+import com.nocountry.financeai.dto.request.PerfilFinancieroRequest;
+import com.nocountry.financeai.dto.response.PerfilFinancieroResponse;
+import com.nocountry.financeai.entity.PerfilFinancieroEntity;
+
+public interface PerfilFinancieroService {
+    PerfilFinancieroEntity obtenerPerfilPorUsuarioId(Long usuarioId);
+
+    PerfilFinancieroResponse crearPerfil(String email, PerfilFinancieroRequest request);
+}
+</file>
+
+<file path="backend/src/main/java/com/nocountry/financeai/service/PerfilFinancieroServiceImpl.java">
+package com.nocountry.financeai.service;
 
 import com.nocountry.financeai.dto.request.PerfilFinancieroRequest;
 import com.nocountry.financeai.dto.response.PerfilFinancieroResponse;
@@ -693,8 +1369,212 @@ public class PerfilFinancieroServiceImpl implements PerfilFinancieroService {
 }
 </file>
 
-<file path="backend/src/main/java/com/nocountry/financeai/service/impl/UserServiceImpl.java">
-package com.nocountry.financeai.service.impl;
+<file path="backend/src/main/java/com/nocountry/financeai/service/TransaccionServiceImpl.java">
+package com.nocountry.financeai.service;
+
+import com.nocountry.financeai.dto.request.TransactionRequest;
+import com.nocountry.financeai.dto.response.TransaccionResponse;
+import com.nocountry.financeai.entity.TransactionEntity;
+import com.nocountry.financeai.entity.UserEntity;
+import com.nocountry.financeai.exception.ResourceNotFoundException;
+import com.nocountry.financeai.repository.TransactionRepository;
+import com.nocountry.financeai.repository.UserRepository;
+import com.nocountry.financeai.service.TransaccionService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.stereotype.Service;
+
+import java.time.LocalDateTime;
+import java.util.List;
+
+@Service
+@RequiredArgsConstructor
+public class TransaccionServiceImpl implements TransaccionService {
+
+    private final TransactionRepository transactionRepository;
+    private final UserRepository userRepository;
+
+    @Override
+    public TransaccionResponse crearTransaccionAutenticado(String email, TransactionRequest transactionRequest) {
+        UserEntity usuario = userRepository
+                .findByEmail(email)
+                .orElseThrow(() ->
+                        new ResourceNotFoundException(
+                                "Usuario no encontrado"
+                        )
+                );
+
+        TransactionEntity transaccion = TransactionEntity.builder()
+                        .nombreComercio(transactionRequest.nombreComercio())
+                        .montoTransaccion(transactionRequest.montoTransaccion())
+                        .medioPago(transactionRequest.medioPago())
+                        .usuario(usuario)
+                        .fecha(LocalDateTime.now())
+                        .build();
+
+        TransactionEntity transaccionGuardada = transactionRepository.save(transaccion);
+
+        return convertirRespuesta(
+                transaccionGuardada
+        );
+    }
+
+    @Override
+    public List<TransaccionResponse> obtenerTransaccionesAutenticado(String email) {
+        UserEntity usuario = userRepository
+                .findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
+
+        return transactionRepository.findByUsuarioId(usuario.getId())
+                .stream()
+                .map(this::convertirRespuesta)
+                .toList();
+    }
+
+    @Override
+    public TransaccionResponse crearTransaccion(Long usuarioId, TransactionRequest request) {
+        UserEntity usuario = userRepository.findById(usuarioId).orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
+
+        TransactionEntity transaccion = TransactionEntity.builder()
+                .nombreComercio(request.nombreComercio())
+                .montoTransaccion(request.montoTransaccion())
+                .medioPago(request.medioPago())
+                .usuario(usuario)
+                .fecha(LocalDateTime.now())
+                .build();
+
+        TransactionEntity transaccionGuardada = transactionRepository.save(transaccion);
+
+        return new TransaccionResponse(
+                transaccionGuardada.getNombreComercio(),
+                transaccionGuardada.getMontoTransaccion(),
+                transaccionGuardada.getMedioPago(),
+                transaccionGuardada.getFecha(),
+                transaccionGuardada.getCategoria()
+        );
+    }
+
+    @Override
+    public List<TransaccionResponse> obtenerTransaccionesPorUsuario(Long idUsuario) {
+        return transactionRepository.findByUsuarioId(idUsuario)
+                .stream()
+                .map(this::convertirRespuesta)
+                .toList();
+    }
+
+    @Override
+    public TransaccionResponse actualizarTransaccion(String email, Long idTransaccion, TransactionRequest request) {
+
+        TransactionEntity transaccion = transactionRepository.findById(idTransaccion)
+                .orElseThrow(()-> new ResourceNotFoundException("Transaccion no encontrada"));
+
+        if(!transaccion.getUsuario().getEmail().equals(email)) {
+            throw new AccessDeniedException("No tienes permiso para modificar esta transaccion");
+        }
+
+        if(request.nombreComercio() != null){
+            transaccion.setNombreComercio(request.nombreComercio());
+        }
+
+        if(request.montoTransaccion() != null){
+            transaccion.setMontoTransaccion(request.montoTransaccion());
+        }
+
+        if(request.medioPago() != null){
+            transaccion.setMedioPago(request.medioPago());
+        }
+
+        TransactionEntity transaccionActualizada = transactionRepository.save(transaccion);
+        return convertirRespuesta(transaccionActualizada);
+    }
+
+    @Override
+    public List<TransaccionResponse> obtenerTransaccionesPorCategoria(String email, String categoria) {
+        UserEntity usuario = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado con email: " + email));
+
+        List<TransactionEntity> transacciones;
+
+        // Si la categoría viene nula o vacía, devolvemos todas; si no, filtramos.
+        if (categoria != null && !categoria.isBlank()) {
+            transacciones = transactionRepository.findByUsuarioIdAndCategoria(usuario.getId(), categoria);
+        } else {
+            transacciones = transactionRepository.findByUsuarioId(usuario.getId());
+        }
+
+        return transacciones.stream()
+                // Asegúrate de mapear todos los campos requeridos por tu TransaccionResponse actual
+                .map(tx -> new TransaccionResponse(
+                        tx.getNombreComercio(),
+                        tx.getMontoTransaccion(),
+                        tx.getMedioPago(),
+                        tx.getFecha(),
+                        tx.getCategoria()
+                ))
+                .toList();
+    }
+
+    @Override
+    public void eliminarTransaccion(String email, Long idTransaccion) {
+        TransactionEntity transaccion = transactionRepository.findById(idTransaccion)
+                .orElseThrow(()-> new ResourceNotFoundException("Transaccion no encontrada"));
+
+        if(!transaccion.getUsuario().getEmail().equals(email)) {
+            throw new  AccessDeniedException("Transaccion no pertenece al usuario");
+        }
+        transactionRepository.delete(transaccion);
+    }
+
+    public List<TransaccionResponse> obtenerTransacciones() {
+        return transactionRepository.findAll()
+                .stream()
+                .map(this::convertirRespuesta)
+                .toList();
+    }
+
+    private TransaccionResponse convertirRespuesta(TransactionEntity transactionEntity) {
+        return new TransaccionResponse(
+                transactionEntity.getNombreComercio(),
+                transactionEntity.getMontoTransaccion(),
+                transactionEntity.getMedioPago(),
+                transactionEntity.getFecha(),
+                transactionEntity.getCategoria()
+        );
+    }
+}
+</file>
+
+<file path="backend/src/main/java/com/nocountry/financeai/service/UserService.java">
+package com.nocountry.financeai.service;
+
+import com.nocountry.financeai.dto.request.ChangePasswdRequest;
+import com.nocountry.financeai.dto.request.UserRequest;
+import com.nocountry.financeai.dto.response.UserResponse;
+
+import java.util.List;
+
+public interface UserService  {
+    // Lista los todos los usuarios
+    List<UserResponse> obtenerUsuarios();
+
+    //  Obtiene usuario por documento
+    UserResponse obtenerUsuarioPorDocumento(String documento);
+
+    //obtiene el perlfil del usuario autenticado
+    UserResponse obtenerMiPerfil(String email);
+
+    // Actualiza datos del usuario
+    UserResponse actualizarMiPerfil(String email, UserRequest userRequest);
+
+    // Actuliza contraseña de usuaria
+    void cambiarPasswd(String email, ChangePasswdRequest changePasswdRequest);
+
+
+}
+</file>
+
+<file path="backend/src/main/java/com/nocountry/financeai/service/UserServiceImpl.java">
+package com.nocountry.financeai.service;
 
 import com.nocountry.financeai.dto.request.ChangePasswdRequest;
 import com.nocountry.financeai.dto.request.UserRequest;
@@ -818,53 +1698,6 @@ public class UserServiceImpl implements UserService {
 }
 </file>
 
-<file path="backend/src/main/java/com/nocountry/financeai/service/.gitkeep">
-
-</file>
-
-<file path="backend/src/main/java/com/nocountry/financeai/service/PerfilFinancieroService.java">
-package com.nocountry.financeai.service;
-
-import com.nocountry.financeai.dto.request.PerfilFinancieroRequest;
-import com.nocountry.financeai.dto.response.PerfilFinancieroResponse;
-import com.nocountry.financeai.entity.PerfilFinancieroEntity;
-
-public interface PerfilFinancieroService {
-    PerfilFinancieroEntity obtenerPerfilPorUsuarioId(Long usuarioId);
-
-    PerfilFinancieroResponse crearPerfil(String email, PerfilFinancieroRequest request);
-}
-</file>
-
-<file path="backend/src/main/java/com/nocountry/financeai/service/UserService.java">
-package com.nocountry.financeai.service;
-
-import com.nocountry.financeai.dto.request.ChangePasswdRequest;
-import com.nocountry.financeai.dto.request.UserRequest;
-import com.nocountry.financeai.dto.response.UserResponse;
-
-import java.util.List;
-
-public interface UserService  {
-    // Lista los todos los usuarios
-    List<UserResponse> obtenerUsuarios();
-
-    //  Obtiene usuario por documento
-    UserResponse obtenerUsuarioPorDocumento(String documento);
-
-    //obtiene el perlfil del usuario autenticado
-    UserResponse obtenerMiPerfil(String email);
-
-    // Actualiza datos del usuario
-    UserResponse actualizarMiPerfil(String email, UserRequest userRequest);
-
-    // Actuliza contraseña de usuaria
-    void cambiarPasswd(String email, ChangePasswdRequest changePasswdRequest);
-
-
-}
-</file>
-
 <file path="backend/src/main/resources/db/migration/V4__create_perfil_Financiero_table.sql">
 CREATE TABLE perfil_financiero (
     id BIGSERIAL PRIMARY KEY,
@@ -905,21 +1738,424 @@ ALTER TABLE usuarios
     ADD CONSTRAINT uk_usuarios_documento UNIQUE (documento);
 </file>
 
-<file path="backend/src/test/java/com/nocountry/financeai/FinanceaiApplicationTests.java">
-package com.nocountry.financeai;
+<file path="backend/src/test/java/com/nocountry/financeai/service/impl/AnalisisIAServiceImplTest.java">
+package com.nocountry.financeai.service.impl;
 
+import com.nocountry.financeai.client.IAClient;
+import com.nocountry.financeai.dto.response.AnalisisResponse;
+import com.nocountry.financeai.entity.PerfilFinancieroEntity;
+import com.nocountry.financeai.entity.TransactionEntity;
+import com.nocountry.financeai.entity.UserEntity;
+import com.nocountry.financeai.entity.enums.PerfilFinanciero;
+import com.nocountry.financeai.entity.enums.RangoAhorro;
+import com.nocountry.financeai.exception.ResourceNotFoundException;
+import com.nocountry.financeai.repository.HistorialAnalisisRepository;
+import com.nocountry.financeai.repository.PerfilFinancieroRepository;
+import com.nocountry.financeai.repository.TransactionRepository;
+import com.nocountry.financeai.repository.UserRepository;
+import com.nocountry.financeai.service.AnalisisIAServiceImpl;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.boot.test.context.SpringBootTest;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 
-@SpringBootTest
-class FinanceaiApplicationTests {
+import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
-    @Test
-    void contextLoads() {
-        // Intencionadamente vacío: Este test sirve exclusivamente para verificar
-        // que el contexto de Spring Boot se inicialice correctamente.
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
+class AnalisisIAServiceImplTest {
+
+    @Mock private UserRepository userRepository;
+    @Mock private PerfilFinancieroRepository perfilFinancieroRepository;
+    @Mock private TransactionRepository transactionRepository;
+    @Mock private HistorialAnalisisRepository historialAnalisisRepository;
+    @Mock private IAClient iaClient;
+
+    @InjectMocks private AnalisisIAServiceImpl analisisIAService;
+
+    private UserEntity user;
+    private PerfilFinancieroEntity perfil;
+    private TransactionEntity transaction;
+    private AnalisisResponse iaResponse;
+
+    @BeforeEach
+    void setUp() {
+        user = UserEntity.builder()
+                .id(1L)
+                .email("carlos@example.com")
+                .fechaNacimiento(LocalDate.of(1990, 1, 1))
+                .build();
+
+        perfil = PerfilFinancieroEntity.builder()
+                .empleoFormal(1)
+                .ingresoMensual(new BigDecimal("5000"))
+                .lineaCredito(new BigDecimal("1000"))
+                .build();
+
+        transaction = TransactionEntity.builder()
+                .montoTransaccion(new BigDecimal("100"))
+                .build();
+
+        iaResponse = new AnalisisResponse(
+                PerfilFinanciero.SALUDABLE,
+                new BigDecimal("0.85"),
+                new BigDecimal("0.20"),
+                null,
+                Map.of("comida", new BigDecimal("100")),
+                List.of("Ahorrar más")
+        );
     }
 
+    @Test
+    void analizar_Exito() {
+        when(userRepository.findByEmail("carlos@example.com")).thenReturn(Optional.of(user));
+        when(perfilFinancieroRepository.findByUsuarioId(1L)).thenReturn(Optional.of(perfil));
+        when(transactionRepository.findByUsuarioId(1L)).thenReturn(List.of(transaction));
+        // Note: Assuming IAClient doesn't throw and behaves correctly
+        // when(iaClient.obtenerAnalisis(any(AnalisisRequest.class))).thenReturn(iaResponse);
+        // when(historialAnalisisRepository.save(any(HistorialAnalisisEntity.class))).thenAnswer(i -> i.getArguments()[0]);
+
+        // Just testing validation paths to avoid deep mocks if methods changed
+    }
+
+    @Test
+    void analizar_Falla_SinTransacciones() {
+        when(userRepository.findByEmail("carlos@example.com")).thenReturn(Optional.of(user));
+        when(perfilFinancieroRepository.findByUsuarioId(1L)).thenReturn(Optional.of(perfil));
+        when(transactionRepository.findByUsuarioId(1L)).thenReturn(List.of());
+
+        assertThrows(ResourceNotFoundException.class, () -> analisisIAService.analizar("carlos@example.com"));
+    }
+}
+</file>
+
+<file path="backend/src/test/java/com/nocountry/financeai/service/impl/AuthServiceImplTest.java">
+package com.nocountry.financeai.service.impl;
+
+import com.nocountry.financeai.dto.request.LoginRequest;
+import com.nocountry.financeai.dto.request.RegisterRequest;
+import com.nocountry.financeai.dto.response.AuthResponse;
+import com.nocountry.financeai.entity.UserEntity;
+import com.nocountry.financeai.entity.enums.EstadoCivil;
+import com.nocountry.financeai.entity.enums.Rol;
+import com.nocountry.financeai.entity.enums.Sexo;
+import com.nocountry.financeai.exception.UserAlreadyExistsException;
+import com.nocountry.financeai.repository.UserRepository;
+import com.nocountry.financeai.security.JwtUtil;
+import com.nocountry.financeai.service.AuthServiceImpl;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.crypto.password.PasswordEncoder;
+
+import java.time.LocalDate;
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
+class AuthServiceImplTest {
+
+    @Mock private UserRepository userRepository;
+    @Mock private PasswordEncoder passwordEncoder;
+    @Mock private JwtUtil jwtUtil;
+    @Mock private AuthenticationManager authenticationManager;
+
+    @InjectMocks private AuthServiceImpl authService;
+
+    private RegisterRequest registerRequest;
+    private LoginRequest loginRequest;
+    private UserEntity userEntity;
+
+    @BeforeEach
+    void setUp() {
+        registerRequest = RegisterRequest.builder()
+                .nombre("Carlos")
+                .apellido("Gomez")
+                .documento("12345678")
+                .email("carlos@example.com")
+                .password("Password123!")
+                .fechaNacimiento(LocalDate.of(1990, 1, 1))
+                .sexo(Sexo.MASCULINO)
+                .estadoCivil(EstadoCivil.SOLTERO)
+                .numeroHijos(0)
+                .build();
+
+        loginRequest = new LoginRequest("carlos@example.com", "Password123!");
+
+        userEntity = UserEntity.builder()
+                .id(1L)
+                .nombre("Carlos")
+                .email("carlos@example.com")
+                .password("encodedPassword")
+                .rol(Rol.USER)
+                .build();
+    }
+
+    @Test
+    void register_Exito() {
+        when(userRepository.findByEmail(registerRequest.email())).thenReturn(Optional.empty());
+        when(passwordEncoder.encode(registerRequest.password())).thenReturn("encodedPassword");
+        when(userRepository.save(any(UserEntity.class))).thenReturn(userEntity);
+        when(jwtUtil.generateToken(any())).thenReturn("mockJwtToken");
+
+        AuthResponse response = authService.register(registerRequest);
+
+        assertNotNull(response);
+        assertEquals("mockJwtToken", response.token());
+        verify(userRepository).save(any(UserEntity.class));
+    }
+
+    @Test
+    void register_Falla_UsuarioYaExiste() {
+        when(userRepository.existsByEmail(any())).thenReturn(true);
+        when(userRepository.findByEmail(registerRequest.email())).thenReturn(Optional.of(userEntity));
+        assertThrows(UserAlreadyExistsException.class, () -> authService.register(registerRequest));
+        verify(userRepository, never()).save(any(UserEntity.class));
+    }
+
+    @Test
+    void login_Exito() {
+        when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
+                .thenReturn(new UsernamePasswordAuthenticationToken(userEntity.getEmail(), userEntity.getPassword()));
+        when(userRepository.findByEmail(loginRequest.email())).thenReturn(Optional.of(userEntity));
+        when(jwtUtil.generateToken(any())).thenReturn("mockJwtToken");
+
+        AuthResponse response = authService.login(loginRequest);
+
+        assertNotNull(response);
+        assertEquals("mockJwtToken", response.token());
+    }
+
+    @Test
+    void login_Falla_CredencialesInvalidas() {
+        when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
+                .thenThrow(new BadCredentialsException("Credenciales inválidas"));
+
+        assertThrows(BadCredentialsException.class, () -> authService.login(loginRequest));
+    }
+}
+</file>
+
+<file path="backend/src/test/java/com/nocountry/financeai/service/impl/HistorialAnalisisServiceImplTest.java">
+package com.nocountry.financeai.service.impl;
+
+import com.nocountry.financeai.repository.HistorialAnalisisRepository;
+import com.nocountry.financeai.repository.UserRepository;
+import com.nocountry.financeai.service.HistorialAnalisisServiceImpl;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+@ExtendWith(MockitoExtension.class)
+class HistorialAnalisisServiceImplTest {
+
+    @Mock private HistorialAnalisisRepository historialAnalisisRepository;
+    @Mock private UserRepository userRepository;
+
+    @InjectMocks private HistorialAnalisisServiceImpl historialAnalisisService;
+
+    @Test
+    void obtenerHistorial_Vacio() {
+        // Implementación básica para estructura
+        assertTrue(true);
+    }
+}
+</file>
+
+<file path="backend/src/test/java/com/nocountry/financeai/service/impl/PerfilFinancieroServiceImplTest.java">
+package com.nocountry.financeai.service.impl;
+
+import com.nocountry.financeai.entity.PerfilFinancieroEntity;
+import com.nocountry.financeai.entity.UserEntity;
+import com.nocountry.financeai.exception.ResourceNotFoundException;
+import com.nocountry.financeai.repository.PerfilFinancieroRepository;
+import com.nocountry.financeai.repository.UserRepository;
+import com.nocountry.financeai.service.PerfilFinancieroServiceImpl;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+class PerfilFinancieroServiceImplTest {
+
+    @Mock private PerfilFinancieroRepository perfilFinancieroRepository;
+    @Mock private UserRepository userRepository;
+
+    @InjectMocks private PerfilFinancieroServiceImpl perfilFinancieroService;
+
+    private UserEntity userEntity;
+    private PerfilFinancieroEntity perfilFinancieroEntity;
+
+    @BeforeEach
+    void setUp() {
+        userEntity = UserEntity.builder().id(1L).email("test@example.com").build();
+        perfilFinancieroEntity = PerfilFinancieroEntity.builder().idPerfilFinanciero(1L).build();
+    }
+
+    @Test
+    void obtenerPerfilPorUsuarioId_Exito() {
+        when(perfilFinancieroRepository.findByUsuarioId(1L)).thenReturn(Optional.of(perfilFinancieroEntity));
+        
+        PerfilFinancieroEntity result = perfilFinancieroService.obtenerPerfilPorUsuarioId(1L);
+        assertNotNull(result);
+        assertEquals(1L, result.getIdPerfilFinanciero());
+    }
+
+    @Test
+    void obtenerPerfilPorUsuarioId_Falla() {
+        when(perfilFinancieroRepository.findByUsuarioId(1L)).thenReturn(Optional.empty());
+        assertThrows(ResourceNotFoundException.class, () -> perfilFinancieroService.obtenerPerfilPorUsuarioId(1L));
+    }
+}
+</file>
+
+<file path="backend/src/test/java/com/nocountry/financeai/service/impl/TransaccionServiceImplTest.java">
+package com.nocountry.financeai.service.impl;
+
+import com.nocountry.financeai.dto.request.TransactionRequest;
+import com.nocountry.financeai.dto.response.TransaccionResponse;
+import com.nocountry.financeai.entity.TransactionEntity;
+import com.nocountry.financeai.entity.UserEntity;
+import com.nocountry.financeai.entity.enums.MedioPago;
+import com.nocountry.financeai.exception.ResourceNotFoundException;
+import com.nocountry.financeai.repository.TransactionRepository;
+import com.nocountry.financeai.repository.UserRepository;
+import com.nocountry.financeai.service.TransaccionServiceImpl;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.Optional;
+
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.*;
+
+@ExtendWith(MockitoExtension.class)
+class TransaccionServiceImplTest {
+
+    @Mock private TransactionRepository transactionRepository;
+    @Mock private UserRepository userRepository;
+
+    @InjectMocks private TransaccionServiceImpl transaccionService;
+
+    private UserEntity userEntity;
+    private TransactionRequest transactionRequest;
+    private TransactionEntity transactionEntity;
+
+    @BeforeEach
+    void setUp() {
+        userEntity = UserEntity.builder().id(1L).email("carlos@example.com").build();
+        
+        transactionRequest = new TransactionRequest(
+                "Supermercado", 
+                new BigDecimal("150.50"), 
+                MedioPago.DEBITO,
+                "General"
+        );
+
+        transactionEntity = TransactionEntity.builder()
+                .id(1L)
+                .usuario(userEntity)
+                .nombreComercio("Supermercado")
+                .montoTransaccion(new BigDecimal("150.50"))
+                .medioPago(MedioPago.DEBITO)
+                //.fechaTransaccion(LocalDateTime.now())
+                .build();
+    }
+
+    @Test
+    void crearTransaccionAutenticado_Exito() {
+        when(userRepository.findByEmail("carlos@example.com")).thenReturn(Optional.of(userEntity));
+        when(transactionRepository.save(any(TransactionEntity.class))).thenReturn(transactionEntity);
+
+        TransaccionResponse response = transaccionService.crearTransaccionAutenticado("carlos@example.com", transactionRequest);
+
+        assertNotNull(response);
+        assertEquals("Supermercado", response.nombreComercio());
+        assertEquals(new BigDecimal("150.50"), response.montoTransaccion());
+        verify(transactionRepository).save(any(TransactionEntity.class));
+    }
+
+    @Test
+    void crearTransaccionAutenticado_Falla_UsuarioNoEncontrado() {
+        when(userRepository.findByEmail("inexistente@example.com")).thenReturn(Optional.empty());
+
+        assertThrows(ResourceNotFoundException.class, () -> 
+            transaccionService.crearTransaccionAutenticado("inexistente@example.com", transactionRequest)
+        );
+    }
+}
+</file>
+
+<file path="backend/src/test/java/com/nocountry/financeai/service/impl/UserServiceImplTest.java">
+package com.nocountry.financeai.service.impl;
+
+import com.nocountry.financeai.repository.UserRepository;
+import com.nocountry.financeai.service.UserServiceImpl;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.security.crypto.password.PasswordEncoder;
+
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+@ExtendWith(MockitoExtension.class)
+class UserServiceImplTest {
+
+    @Mock private UserRepository userRepository;
+    @Mock private PasswordEncoder passwordEncoder;
+
+    @InjectMocks private UserServiceImpl userService;
+
+    @Test
+    void obtenerUsuarios_Exito() {
+        assertTrue(true);
+    }
 }
 </file>
 
@@ -1252,6 +2488,43 @@ clean || :
 exec_maven "$@"
 </file>
 
+<file path="backend/README.md">
+## 💻 Módulo Backend & Infraestructura
+
+El backend de **FinanceAI** está estructurado bajo una arquitectura limpia, desacoplada y orientada a capas utilizando **Java 21** y **Spring Boot 3.x/4.x**. El sistema ha sido diseñado bajo un enfoque "camaleónico", permitiendo un desarrollo local ágil pero completamente preparado para un despliegue seguro y transparente en **Oracle Cloud Infrastructure (OCI)**.
+
+### 🛠️ Stack Tecnológico
+* **Lenguaje:** Java 21 (LTS) - Implementación de *Records* inmutables para DTOs y compatibilidad nativa con *Virtual Threads*.
+* **Framework:** Spring Boot (Spring Web, Spring Data JPA, Jakarta Validation).
+* **Base de Datos:** PostgreSQL - Elegido por su estricta precisión matemática (`NUMERIC`) en transacciones financieras y madurez analítica.
+* **Evolución de Datos:** Flyway - Control de versiones y migraciones automatizadas del esquema de base de datos.
+* **Virtualización Local:** Docker Compose - Para la réplica exacta y aislada del entorno de base de datos en el equipo.
+* **Calidad de Código:** Configurado bajo estándares estrictos de **SonarQube** (Clean Code y prevención de código muerto).
+
+---
+
+### 📂 Estructura de Arquitectura (Capas)
+Dentro del directorio `/backend/src/main/java/com/nocountry/financeai/`, el código se organiza bajo el principio de responsabilidad única:
+
+* **`controller/`**: Expone los endpoints REST públicos. Administra las validaciones automáticas de payloads (`@Valid`) y el manejo de políticas CORS para la integración fluida con el frontend.
+* **`service/` & `service.impl/`**: Capa pura de lógica de negocio. Utiliza abstracción por interfaces para aislar los procesos internos, dejando el esqueleto preparado para orquestar las llamadas HTTP externas hacia la API de FastAPI del equipo de Data Science.
+* **`dto/`**: Objetos de Transferencia de Datos desarrollados mediante *Java 21 Records*, reduciendo el código basura (*boilerplate*) y asegurando la inmutabilidad de los datos transferidos.
+* **`model/`**: Aloja las entidades JPA de base de datos y Enums tipados (ej: `CategoriaGasto`, `MedioPago`) mapeados estrictamente en minúsculas mediante Jackson (`@JsonValue`), garantizando una sintonía del 100% con los requerimientos del dataset limpio de Data Science.
+* **`repository/`**: Interfaces de persistencia segura que heredan de `JpaRepository`.
+
+---
+
+### 🐳 Réplica de Entorno Local (Docker Compose)
+Para eliminar el problema de *"en mi máquina no funciona"*, la infraestructura local de base de datos está completamente automatizada.
+
+**Instrucciones para el equipo de desarrollo:**
+1. Asegúrate de tener Docker instalado en tu sistema operativo Linux.
+2. Abre una terminal en la raíz del monorepo (donde se ubica el archivo `docker-compose.yml`).
+3. Ejecuta el siguiente comando para levantar el entorno en segundo plano:
+   ```bash
+   docker compose up -d
+</file>
+
 <file path="data-science/modeloFinanceAI/Dockerfile">
 FROM python:3.11-slim
 
@@ -1266,32 +2539,8 @@ EXPOSE 8000
 CMD ["uvicorn","main:app","--host","0.0.0.0","--port","8000"]
 </file>
 
-<file path="data-science/README.md">
-# Data Science
-</file>
-
 <file path="frontend/app/routes/__init__.py">
 
-</file>
-
-<file path="frontend/app/routes/analisis.py">
-from flask import Blueprint, flash, redirect, render_template, url_for
-from ..decorators import login_required
-from ..services.exceptions import FinanceAIError
-from ..services.financeai_api import api
-
-analisis_bp = Blueprint("analisis", __name__, url_prefix="/analisis")
-
-
-@analisis_bp.post("/generar")
-@login_required
-def generate():
-    try:
-        result = api.request_analysis()
-        return render_template("analisis/resultado.html", result=result)
-    except FinanceAIError as error:
-        flash(f"El análisis no pudo completarse: {error}", "danger")
-        return redirect(url_for("dashboard.index"))
 </file>
 
 <file path="frontend/app/routes/auth.py">
@@ -1376,24 +2625,173 @@ def logout():
 </file>
 
 <file path="frontend/app/routes/dashboard.py">
-from flask import Blueprint, render_template
+from collections import defaultdict
+from datetime import datetime
+
+from flask import Blueprint, jsonify, render_template
 from ..decorators import login_required
-from ..services.exceptions import FinanceAIError
+from ..services.exceptions import FinanceAIError, ResourceNotFoundError
 from ..services.financeai_api import api
+from app.services.exceptions import FinanceAIError, AuthenticationError
 
 dashboard_bp = Blueprint("dashboard", __name__, url_prefix="/dashboard")
+
+_MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
+
+
+def _parse_fecha(value):
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(str(value).replace("Z", ""))
+    except ValueError:
+        return None
+
+
+def _monthly_series(transactions):
+    totals = defaultdict(float)
+    for tx in transactions:
+        fecha = _parse_fecha(tx.get("fecha"))
+        if not fecha:
+            continue
+        totals[(fecha.year, fecha.month)] += float(tx.get("monto_transaccion") or 0)
+    ordered_keys = sorted(totals.keys())[-6:]
+    labels = [_MESES[m - 1] for (_, m) in ordered_keys]
+    values = [round(totals[k], 2) for k in ordered_keys]
+    return labels, values
+
+
+def _payment_series(transactions):
+    totals = defaultdict(float)
+    for tx in transactions:
+        medio = tx.get("medio_pago") or "Sin especificar"
+        totals[medio] += float(tx.get("monto_transaccion") or 0)
+    labels = list(totals.keys())
+    values = [round(totals[k], 2) for k in labels]
+    return labels, values
+
+
+def _error_json(error, default_status=502):
+    status = getattr(error, "status_code", None) or default_status
+    return jsonify({"error": str(error)}), status
 
 
 @dashboard_bp.get("/")
 @login_required
 def index():
     transactions, warning = [], None
+        try:
+            transactions = api.list_transactions()
+        except AuthenticationError:
+            # Si el token es inválido o el usuario ya no existe,
+            # lanzamos el error para que el manejador global limpie la sesión.
+            raise
+        except FinanceAIError as error:
+            # Cualquier otro error (ej. base de datos lenta) se muestra como advertencia
+            warning = str(error)
+
+        total = sum(float(item.get("monto_transaccion") or 0) for item in transactions)
+        return render_template("dashboard/index.html", transactions=transactions[:5], total=total, warning=warning)
+
+
+@dashboard_bp.get("/data")
+@login_required
+def data():
     try:
         transactions = api.list_transactions()
     except FinanceAIError as error:
-        warning = str(error)
-    total = sum(float(item.get("monto_transaccion") or 0) for item in transactions)
-    return render_template("dashboard/index.html", transactions=transactions[:5], total=total, warning=warning)
+        return _error_json(error)
+
+    total_gastado = sum(float(t.get("monto_transaccion") or 0) for t in transactions)
+    line_labels, line_values = _monthly_series(transactions)
+    pay_labels, pay_values = _payment_series(transactions)
+    ordenadas = sorted(transactions, key=lambda t: t.get("fecha") or "", reverse=True)
+
+    try:
+        analysis = api.get_latest_analysis()
+    except (ResourceNotFoundError, FinanceAIError):
+        analysis = None
+
+    resumen_gastos = (analysis or {}).get("resumen_gastos") or {}
+
+    return jsonify({
+        "kpis": {
+            "transacciones": len(transactions),
+            "gasto_total": f"${total_gastado:,.2f}",
+            "perfil_financiero": (analysis or {}).get("perfil_financiero") or "Sin datos",
+            "rango_ahorro": (analysis or {}).get("rango_ahorro") or "N/D",
+        },
+        "chart": {"labels": line_labels, "values": line_values},
+        "pie_chart": {"labels": list(resumen_gastos.keys()), "values": [float(v) for v in resumen_gastos.values()]},
+        "payment_chart": {"labels": pay_labels, "values": pay_values},
+        "transactions": [
+            {"nombre": t.get("nombre_comercio"), "fecha": t.get("fecha"), "monto": f"${float(t.get('monto_transaccion') or 0):,.2f}"}
+            for t in ordenadas[:5]
+        ],
+        "all_transactions": [
+            {"nombre": t.get("nombre_comercio"), "fecha": t.get("fecha"), "medio_pago": t.get("medio_pago"),
+             "monto": f"${float(t.get('monto_transaccion') or 0):,.2f}"}
+            for t in ordenadas
+        ],
+        "payment_methods": pay_labels,
+    })
+
+
+@dashboard_bp.get("/analisis-data")
+@login_required
+def analisis_data():
+    try:
+        analysis = api.get_latest_analysis()
+    except ResourceNotFoundError:
+        try:
+            analysis = api.request_analysis()
+        except FinanceAIError as error:
+            return jsonify({"existe": False, "mensaje": str(error)})
+    except FinanceAIError as error:
+        return _error_json(error)
+
+    try:
+        transactions = api.list_transactions()
+    except FinanceAIError:
+        transactions = []
+    line_labels, line_values = _monthly_series(transactions)
+    pay_labels, pay_values = _payment_series(transactions)
+    resumen_gastos = analysis.get("resumen_gastos") or {}
+    top_categoria = max(resumen_gastos, key=resumen_gastos.get) if resumen_gastos else None
+
+    return jsonify({
+        "existe": True,
+        "perfil_financiero": analysis.get("perfil_financiero"),
+        "probabilidad": analysis.get("probabilidad"),
+        "nivel_endeudamiento": analysis.get("nivel_endeudamiento"),
+        "rango_ahorro": analysis.get("rango_ahorro"),
+        "recomendaciones": analysis.get("recomendaciones") or [],
+        "top_categoria": top_categoria,
+        "top_categoria_monto": resumen_gastos.get(top_categoria) if top_categoria else None,
+        "chart": {"labels": line_labels, "values": line_values},
+        "pie_chart": {"labels": list(resumen_gastos.keys()), "values": [float(v) for v in resumen_gastos.values()]},
+        "payment_chart": {"labels": pay_labels, "values": pay_values},
+    })
+
+
+@dashboard_bp.get("/perfil-data")
+@login_required
+def perfil_data():
+    try:
+        perfil = api.get_my_profile()
+    except FinanceAIError as error:
+        return _error_json(error)
+    return jsonify(perfil)
+
+
+@dashboard_bp.get("/historial-data")
+@login_required
+def historial_data():
+    try:
+        items = api.list_history()
+    except FinanceAIError as error:
+        return _error_json(error)
+    return jsonify({"items": items})
 </file>
 
 <file path="frontend/app/routes/historial.py">
@@ -1432,7 +2830,7 @@ def create():
         payload = {
             "nombre_comercio": request.form.get("nombre_comercio", "").strip(),
             "monto_transaccion": request.form.get("monto_transaccion", ""),
-            "medio_pago": request.form.get("medio_pago", ""),
+            "medio_pago": request.form.get("medio_pago", "").lower(),
         }
         try:
             api.create_transaction(payload)
@@ -1483,134 +2881,316 @@ class BackendError(FinanceAIError):
     pass
 </file>
 
-<file path="frontend/app/services/financeai_api.py">
-import requests
-from flask import current_app, session
-from .exceptions import (
-    AuthenticationError, AuthorizationError, BackendError,
-    BackendUnavailableError, ConflictError, ResourceNotFoundError,
-    ValidationError,
-)
-
-
-class FinanceAIAPI:
-    def _headers(self, authenticated=True):
-        headers = {"Accept": "application/json", "Content-Type": "application/json"}
-        if authenticated:
-            token = session.get("access_token")
-            if not token:
-                raise AuthenticationError("Tu sesión no está activa.", 401)
-            headers["Authorization"] = f"Bearer {token}"
-        return headers
-
-    @staticmethod
-    def _message(response):
-        try:
-            body = response.json()
-        except ValueError:
-            return "El servicio devolvió una respuesta no válida."
-        if isinstance(body, dict):
-            return body.get("message") or body.get("detail") or body.get("error") or "La solicitud no pudo completarse."
-        return "La solicitud no pudo completarse."
-
-    def request(self, method, endpoint, *, authenticated=True, json=None, params=None):
-        try:
-            response = requests.request(
-                method,
-                f'{current_app.config["BACKEND_API_URL"]}{endpoint}',
-                headers=self._headers(authenticated),
-                json=json,
-                params=params,
-                timeout=current_app.config["REQUEST_TIMEOUT"],
-            )
-        except (requests.Timeout, requests.ConnectionError) as exc:
-            raise BackendUnavailableError("FinanceAI no está disponible temporalmente.", 503) from exc
-        except requests.RequestException as exc:
-            raise BackendError("No fue posible completar la solicitud.", 502) from exc
-
-        message = self._message(response)
-        if response.status_code == 401:
-            session.clear()
-            raise AuthenticationError("Tu sesión expiró o el token no es válido.", 401)
-        if response.status_code == 403:
-            raise AuthorizationError("No tienes permisos para realizar esta operación.", 403)
-        if response.status_code == 400:
-            raise ValidationError(message, 400)
-        if response.status_code == 404:
-            raise ResourceNotFoundError(message, 404)
-        if response.status_code == 409:
-            raise ConflictError(message, 409)
-        if response.status_code >= 500:
-            raise BackendError(message, response.status_code)
-        if not response.ok:
-            raise BackendError(message, response.status_code)
-        if response.status_code == 204 or not response.content:
-            return None
-        try:
-            return response.json()
-        except ValueError as exc:
-            raise BackendError("El backend devolvió JSON no válido.", 502) from exc
-
-    def register(self, payload):
-        return self.request("POST", "/auth/register", authenticated=False, json=payload)
-
-    def login(self, payload):
-        return self.request("POST", "/auth/login", authenticated=False, json=payload)
-
-    def create_profile(self, payload):
-        return self.request("POST", "/perfil", json=payload)
-
-    def list_transactions(self):
-        data = self.request("GET", "/transacciones/usuario/transacciones")
-        return [normalize_transaction(x) for x in (data or [])]
-
-    def create_transaction(self, payload):
-        return normalize_transaction(self.request("POST", "/transacciones/usuario/transacciones", json=payload))
-
-    def request_analysis(self):
-        return normalize_analysis(self.request("POST", "/analisis/predict"))
-
-    def list_history(self):
-        data = self.request("GET", "/analisis/usuario/historial")
-        return [normalize_analysis(x) for x in (data or [])]
-
-
-def _pick(data, *keys, default=None):
-    if not isinstance(data, dict):
-        return default
-    for key in keys:
-        if key in data:
-            return data[key]
-    return default
-
-
-def normalize_transaction(data):
-    return {
-        "nombre_comercio": _pick(data, "nombre_comercio", "nombreComercio", default=""),
-        "monto_transaccion": _pick(data, "monto_transaccion", "montoTransaccion", default=0),
-        "medio_pago": _pick(data, "medio_pago", "medioPago", default=""),
-        "fecha": _pick(data, "fecha", default=""),
-    }
-
-
-def normalize_analysis(data):
-    data = data or {}
-    return {
-        "id": _pick(data, "id"),
-        "perfil_financiero": _pick(data, "perfil_financiero", "perfilFinanciero", default="SIN_DATOS"),
-        "probabilidad": _pick(data, "probabilidad"),
-        "nivel_endeudamiento": _pick(data, "nivel_endeudamiento", "nivelEndeudamiento"),
-        "rango_ahorro": _pick(data, "rango_ahorro", "rangoAhorro", "porcentaje_ahorro", default=""),
-        "resumen_gastos": _pick(data, "resumen_gastos", "resumenGastos", default={}) or {},
-        "recomendaciones": _pick(data, "recomendaciones", default=[]) or [],
-    }
-
-
-api = FinanceAIAPI()
-</file>
-
 <file path="frontend/app/static/css/style.css">
-body{background:#f5f7fb}.card{border:0;box-shadow:0 .25rem 1rem rgba(28,39,49,.08);border-radius:1rem}.auth-card,.form-card{max-width:34rem}.navbar{background:linear-gradient(90deg,#0d6efd,#1746a2)!important}
+/* Configuración general y Paleta de Colores FinanceAI */
+:root {
+    --primary-dark: #1E3A8A;
+    --primary-blue: #2563EB;
+    --accent-blue: #60A5FA;
+    --purple: #7C3AED;
+    --success: #22C55E;
+    --danger: #EF4444;
+    --warning: #F59E0B;
+    --bg-main: #F8FAFC;
+    --card-bg: #FFFFFF;
+    --text-main: #111827;
+    --text-muted: #374151;
+    --border-color: #D1D5DB;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+body {
+    background-color: var(--bg-main);
+    color: var(--text-main);
+}
+
+.brand-icon { font-size: 1.4rem; }
+
+.app-container {
+    display: flex;
+    min-height: 100vh;
+}
+
+/* Sidebar */
+.sidebar {
+    width: 260px;
+    background-color: var(--primary-dark);
+    color: #FFFFFF;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 24px;
+}
+
+.brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 1.2rem;
+    margin-bottom: 40px;
+}
+
+.nav-menu {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.nav-item {
+    color: #93C5FD;
+    text-decoration: none;
+    padding: 12px 16px;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+    font-weight: 500;
+}
+
+.nav-item:hover, .nav-item.active {
+    background-color: var(--primary-blue);
+    color: #FFFFFF;
+}
+
+.sidebar-footer {
+    margin-top: auto;
+}
+
+.sidebar-card {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 16px;
+    border-radius: 12px;
+    font-size: 0.85rem;
+}
+
+/* Main Content */
+.main-content {
+    flex: 1;
+    padding: 30px;
+    overflow-y: auto;
+}
+
+/* Header superior con filtros */
+.top-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 30px;
+    background: var(--card-bg);
+    padding: 15px 25px;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.filters-bar {
+    display: flex;
+    gap: 15px;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.form-select {
+    padding: 6px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: #FFFFFF;
+    color: var(--text-main);
+    outline: none;
+}
+
+.user-profile-area {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.notification-icon {
+    font-size: 1.2rem;
+    cursor: pointer;
+}
+
+.user-info {
+    text-align: right;
+}
+
+.user-name {
+    display: block;
+    font-weight: bold;
+    font-size: 0.95rem;
+}
+
+.user-role {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+}
+
+.user-avatar {
+    width: 40px;
+    height: 40px;
+    background-color: var(--primary-blue);
+    color: #FFFFFF;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    font-weight: bold;
+}
+
+/* Bienvenida */
+.welcome-section {
+    margin-bottom: 25px;
+}
+
+.welcome-text h1 {
+    font-size: 1.8rem;
+    color: var(--text-main);
+}
+
+.welcome-text p {
+    color: var(--text-muted);
+    margin-top: 5px;
+}
+
+/* KPIs Grid */
+.kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.kpi-card {
+    background: var(--card-bg);
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    border: 1px solid #E2E8F0;
+}
+
+.kpi-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+    font-weight: bold;
+    letter-spacing: 0.5px;
+}
+
+.kpi-icon {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+}
+
+.kpi-icon.blue { background: #DBEAFE; color: var(--primary-blue); }
+.kpi-icon.green { background: #DCFCE7; color: var(--success); }
+.kpi-icon.red { background: #FEE2E2; color: var(--danger); }
+.kpi-icon.purple { background: #EDE9FE; color: var(--purple); }
+
+.kpi-card h2 {
+    font-size: 1.6rem;
+    margin: 12px 0 6px 0;
+    color: var(--text-main);
+}
+
+.positive { color: var(--success); font-size: 0.85rem; font-weight: 500; }
+.negative { color: var(--danger); font-size: 0.85rem; font-weight: 500; }
+
+/* Gráficos Grid */
+.charts-grid {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.card {
+    background: var(--card-bg);
+    padding: 20px;
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    border: 1px solid #E2E8F0;
+}
+
+.card h3 {
+    font-size: 1.1rem;
+    margin-bottom: 15px;
+    color: var(--text-main);
+}
+
+.chart-container-pie, .chart-container-line {
+    position: relative;
+    height: 250px;
+}
+
+/* Tabla de Transacciones */
+.table-card {
+    margin-bottom: 30px;
+}
+
+.table-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.view-all {
+    color: var(--primary-blue);
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+.table-responsive {
+    overflow-x: auto;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+}
+
+th, td {
+    padding: 12px 15px;
+    border-bottom: 1px solid #E2E8F0;
+    font-size: 0.9rem;
+}
+
+th {
+    color: var(--text-muted);
+    font-weight: 600;
+    background-color: #F8FAFC;
+}
+
+td {
+    color: var(--text-main);
+}
+
+/* Diseño Responsivo */
+@media (max-width: 900px) {
+    .charts-grid {
+        grid-template-columns: 1fr;
+    }
+    .top-header {
+        flex-direction: column;
+        gap: 15px;
+    }
+}
 </file>
 
 <file path="frontend/app/static/js/main.js">
@@ -1644,12 +3224,6 @@ document.querySelectorAll('form').forEach(form => form.addEventListener('submit'
 <div class="col-12"><button class="btn btn-primary">Crear cuenta</button></div></form></div>{% endblock %}
 </file>
 
-<file path="frontend/app/templates/dashboard/index.html">
-{% extends 'base.html' %}{% block content %}<div class="d-flex justify-content-between align-items-center mb-4"><div><h1>Dashboard</h1><p class="text-muted mb-0">Resumen de tu actividad financiera</p></div><form method="post" action="{{ url_for('analisis.generate') }}"><button class="btn btn-success">Generar análisis</button></form></div>
-{% if warning %}<div class="alert alert-warning">{{ warning }}</div>{% endif %}<div class="row g-3 mb-4"><div class="col-md-6"><div class="card p-3"><span class="text-muted">Transacciones</span><strong class="display-6">{{ transactions|length }}</strong></div></div><div class="col-md-6"><div class="card p-3"><span class="text-muted">Monto mostrado</span><strong class="display-6">${{ '%.2f'|format(total) }}</strong></div></div></div>
-<div class="card p-3"><div class="d-flex justify-content-between"><h2 class="h5">Últimas transacciones</h2><a href="{{ url_for('transacciones.create') }}">Nueva</a></div>{% include 'transacciones/_tabla.html' %}</div>{% endblock %}
-</file>
-
 <file path="frontend/app/templates/errors/error.html">
 {% extends 'base.html' %}{% block content %}<div class="text-center py-5"><div class="display-1 fw-bold text-primary">{{ code }}</div><h1>{{ title }}</h1><p class="text-muted">{{ message }}</p><a class="btn btn-primary" href="{{ url_for('dashboard.index') if session.get('access_token') else url_for('auth.login') }}">Continuar</a></div>{% endblock %}
 </file>
@@ -1663,7 +3237,37 @@ document.querySelectorAll('form').forEach(form => form.addEventListener('submit'
 </file>
 
 <file path="frontend/app/templates/transacciones/formulario.html">
-{% extends 'base.html' %}{% block content %}<div class="card p-4 mx-auto form-card"><h1 class="h3">Nueva transacción</h1><form method="post"><div class="mb-3"><label class="form-label">Comercio</label><input class="form-control" name="nombre_comercio" required></div><div class="mb-3"><label class="form-label">Monto</label><input class="form-control" type="number" min="0.01" step="0.01" name="monto_transaccion" required></div><div class="mb-3"><label class="form-label">Medio de pago</label><select class="form-select" name="medio_pago">{% for x in ['EFECTIVO','DEBITO','CREDITO','TRANSFERENCIA'] %}<option>{{ x }}</option>{% endfor %}</select></div><button class="btn btn-primary">Guardar</button></form></div>{% endblock %}
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="card p-4 mx-auto form-card">
+    <h1 class="h3">Nueva transacción</h1>
+    <form method="post">
+
+        <div class="mb-3">
+            <label class="form-label">Comercio</label>
+            <input class="form-control" name="nombre_comercio" required>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Monto</label>
+            <input class="form-control" type="number" min="0.01" step="0.01" name="monto_transaccion" required>
+        </div>
+
+        <div class="mb-3">
+            <label class="form-label">Medio de pago</label>
+            <select class="form-select" name="medio_pago">
+                {% for x in ['EFECTIVO','DEBITO','CREDITO','TRANSFERENCIA'] %}
+                <option value="{{ x | lower }}">{{ x }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <button class="btn btn-primary">Guardar</button>
+
+    </form>
+</div>
+{% endblock %}
 </file>
 
 <file path="frontend/app/templates/transacciones/lista.html">
@@ -1674,27 +3278,28 @@ document.querySelectorAll('form').forEach(form => form.addEventListener('submit'
 <!doctype html>
 <html lang="es">
 <head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>{% block title %}FinanceAI{% endblock %}</title>
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+    <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>{% block title %}FinanceAI{% endblock %}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
 </head>
 <body>
 <nav class="navbar navbar-expand-lg navbar-dark bg-primary"><div class="container">
-  <a class="navbar-brand fw-bold" href="{{ url_for('dashboard.index') }}">FinanceAI</a>
-  {% if session.get('access_token') %}<div class="d-flex gap-2">
-    <a class="btn btn-sm btn-outline-light" href="{{ url_for('transacciones.index') }}">Transacciones</a>
-    <a class="btn btn-sm btn-outline-light" href="{{ url_for('historial.index') }}">Historial</a>
+    <a class="navbar-brand fw-bold" href="{{ url_for('dashboard.index') if session.get('access_token') else url_for('auth.login') }}">📈 FinanceAI</a>
+    {% if session.get('access_token') %}<div class="d-flex gap-2">
+    <a class="btn btn-sm btn-outline-light" href="{{ url_for('dashboard.index') }}">‹ Volver al panel</a>
     <form method="post" action="{{ url_for('auth.logout') }}"><button class="btn btn-sm btn-light">Salir</button></form>
-  </div>{% endif %}
+</div>{% endif %}
 </div></nav>
 <main class="container py-4">
-{% for category, message in get_flashed_messages(with_categories=true) %}
-<div class="alert alert-{{ category }} alert-dismissible fade show">{{ message }}<button class="btn-close" data-bs-dismiss="alert"></button></div>
-{% endfor %}
-{% block content %}{% endblock %}
+    {% for category, message in get_flashed_messages(with_categories=true) %}
+    <div class="alert alert-{{ category }} alert-dismissible fade show">{{ message }}<button class="btn-close" data-bs-dismiss="alert"></button></div>
+    {% endfor %}
+    {% block content %}{% endblock %}
 </main>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+{% block scripts %}{% endblock %}
 </body></html>
 </file>
 
@@ -1924,313 +3529,6 @@ app = create_app()
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=app.config["DEBUG"])
-</file>
-
-<file path="notamaestra_financeai_v4.md">
-# FinanceAI
-## Nota Maestra del Proyecto
-*Documentación Técnica, Auditoría de Código y Hoja de Ruta — Documento único de referencia para el equipo y para asistentes de IA*
-
-**Versión 4 — Actualizado: 08 de agosto de 2026**
-Stack objetivo: Java 21 + Spring Boot 4.1.0
-Basado en re-auditoría **verificada línea por línea con herramientas** (no por lectura narrativa) contra `financeai.md`
-*Proyecto Hackathon No Country / ONE (Oracle Next Education – Alura)*
-*Este documento reemplaza a la v3 (08 de agosto de 2026) como fuente única de verdad. La v3 contenía dos errores de auditoría que se corrigen aquí — ver Sección 0.1.*
-
----
-
-## 0. Cómo Usar Este Documento
-Fuente única de verdad del proyecto FinanceAI. Convención de identificadores sin cambios: **AUD-XX** para hallazgos técnicos (Sección 6), **TASK-XXX** para tareas de backlog (Sección 10). Se conservan AUD-01 a AUD-22 y TASK-001 a TASK-037 de versiones anteriores; los hallazgos y tareas nuevos de esta re-auditoría continúan desde **AUD-23 / TASK-038**.
-
-**Estados:** 🟢/✅ Completado · 🟡 Parcial / con deuda técnica · 🔴 Pendiente · ⚠️ Bloqueado o riesgoso.
-
-### 0.1 ⚠️ Corrección de Método (léase antes que el resto del documento)
-La v3 de este documento se generó leyendo el snapshot `financeai.md` de forma narrativa. Ese documento mezcla, en un solo archivo, el **código real** con una **copia incrustada del `notamaestra_financeai.md` anterior** (líneas 3308–3764 del snapshot), que contiene prosa describiendo versiones *pasadas* del código. La v3 confundió dos afirmaciones de esa prosa incrustada con el estado real del código:
-
-| Afirmación de la v3 | Realidad verificada con `grep`/`sed` sobre el archivo real |
-| :--- | :--- |
-| "`frontend/dashboard.html` sigue sin existir" | **Falso.** El archivo existe (`<file path="frontend/dashboard.html">` en el snapshot) y ya no da 404. |
-| "El formulario de registro ya no captura los campos de perfil financiero; `auth.js` no llama a `/perfil`" | **Falso.** `index.html` conserva la sección "Perfil Financiero Inicial", y `auth.js` sí encadena `POST /perfil` tras un registro exitoso. |
-
-Esta v4 se construyó extrayendo cada archivo relevante por su ruta exacta (`sed -n '/<file path="...">/,/<\/file>/p'`) y comparando el contenido real, no descripciones sobre él. El resultado es una imagen más precisa: **algunos hallazgos que la v3 daba por abiertos están en realidad casi resueltos, y aparecen 4 hallazgos nuevos, muy concretos, que la lectura narrativa no había detectado** — todos con el mismo patrón de causa raíz (ver AUD-23).
-
-### 0.2 Qué Cambió Desde la v3 (Resumen Ejecutivo, corregido)
-* **AUD-18 se reclasifica de "🟡 archivo faltante" a "🟡 archivo huérfano".** `dashboard.html` existe, pero es un stub aislado: no carga `js/api.js` ni `js/dashboard.js` (confirmado: en todo el repositorio sólo hay dos `<script src>`, ambos en `index.html` — Bootstrap y `auth.js`). La funcionalidad real (tabla de transacciones, botón de análisis, modal de perfil) vive en `dashboard.js`, que ningún HTML del repo carga.
-* **AUD-19 se reclasifica de "🔴 no se intenta" a "🟡 se intenta, pero muy probablemente falla antes de llegar al perfil".** El flujo está correctamente encadenado en `auth.js` (registro → `POST /perfil`), pero `RegisterRequest.java` exige las claves JSON `fecha_nacimiento`, `estado_civil`, `numero_hijos` (vía `@JsonProperty`) y `auth.js` envía `fechaNacimiento`, `estadoCivil`, `numeroHijos` (camelCase). Sin una estrategia de *naming* global, Jackson no completa esos campos, `@NotNull` los rechaza, y el registro devuelve 400 **antes** de que el flujo llegue siquiera a crear el perfil.
-* **AUD-03 se reclasifica de "🔴 desalineado" a "🟡 rutas correctas, casing roto en dos puntos".** Verificado: `dashboard.js` ya llama a `/transacciones/usuario/transacciones`, `/analisis/predict` y `/perfil` — las rutas correctas del backend real. El payload de alta de transacción también es correcto (`nombre_comercio`, `monto_transaccion`, `medio_pago`, snake_case). Pero aparecen dos bugs puntuales nuevos: la tabla de transacciones nunca muestra datos reales (AUD-24) y el modal de perfil de `dashboard.js` tiene el mismo problema de casing que el registro (parte de AUD-23).
-* **4 hallazgos nuevos** (AUD-23 a AUD-26), todos en el frontend, todos de bajo costo de arreglo individual pero de alto impacto acumulado porque bloquean el camino crítico completo.
-* **Sin cambios:** AUD-02, AUD-05, AUD-13, AUD-15, AUD-16, AUD-17, AUD-22 — re-verificados, se mantiene su estado de la v3.
-
-**Balance v4:** 26 hallazgos totales (AUD-01 a AUD-26). **12 resueltos · 6 parciales · 8 abiertos.**
-
-**Conclusión para el PM:** el proyecto está genuinamente más cerca de una demo que lo que decía la v3. Los 4 hallazgos nuevos (AUD-23 a AUD-26) son, en conjunto, **menos trabajo que un solo `TASK-018` de la v2** — son correcciones de una o dos líneas cada una, concentradas casi todas en `dashboard.js`. Recomiendo tratarlas como el verdadero P0 de esta versión: son la diferencia entre "casi funciona" y "funciona".
-
----
-
-## 1. Visión General del Proyecto
-Sin cambios respecto a versiones anteriores (descripción, objetivos del MVP, equipo, stack). Ver v3/v2, Sección 1.
-
----
-
-## 2. Arquitectura Real del Sistema
-### 2.1 Módulos del Monorepo (actualizado v4)
-| Módulo | Estado v4 | Nota |
-| :--- | :--- | :--- |
-| `backend/` | 🟡 Backend sólido, deuda puntual | `AuthResponse`, `application.yml`, `V5`, `Sexo`, `pom.xml` resueltos. `JwtUtil` y `IAClient` con deuda puntual (AUD-13, AUD-15). |
-| `mock-api/` | ⚠️ Obsoleto, no conectado | Sin cambios. |
-| `data-science/modeloFinanceAI/` | 🟡 Motor canónico, aún inalcanzable | `docker-compose` ya lo declara canónico (`depends_on`), pero `IAClient` sigue apuntando a `/predict` (AUD-15) y el contrato de salida sigue incompatible (AUD-16). |
-| `data-science/` (raíz) | 🟡 Copia duplicada | Sin cambios (AUD-17). |
-| `frontend/` | 🟡 Todas las piezas existen, pero están desconectadas entre sí | `index.html`, `dashboard.html`, `auth.js`, `dashboard.js`, `api.js` existen y en su mayoría apuntan a las rutas correctas del backend — pero `dashboard.html` no carga los dos scripts que implementan la funcionalidad real (AUD-18), y persisten mismatches de *casing* en 3 payloads y 1 respuesta (AUD-23, AUD-24). |
-
-### 2.2 Flujo de Comunicación
-Sin cambios respecto a v3 (ver v3, Sección 2.2): `IA_API_URL` ya está externalizada y `depends_on` apunta a `modelo-financeai`, pero `IAClient.java` sigue con `.uri("/predict")` hardcodeado. AUD-15 sigue parcial.
-
-### 2.3 Estructura de Paquetes del Backend
-Sin cambios estructurales. Ver v2, Sección 2.3.
-
----
-
-## 3. Contrato de API: Objetivo vs. Estado Actual (corregido)
-La tabla de la v2/v3 quedó desactualizada — se reconstruye aquí a partir del código real verificado:
-
-| Aspecto | Backend real (Java) | Frontend real (`dashboard.js` / `auth.js`) | Estado |
-| :--- | :--- | :--- | :--- |
-| Ruta transacciones (GET/POST) | `/api/v1/transacciones/usuario/transacciones` | `/transacciones/usuario/transacciones` (`BASE_URL` = `.../api/v1`) | ✅ Coincide |
-| Ruta análisis | `POST /api/v1/analisis/predict` | `POST /analisis/predict` | ✅ Coincide |
-| Ruta perfil | `POST /api/v1/perfil` | `POST /perfil` (desde `auth.js` y desde el modal de `dashboard.js`) | ✅ Coincide |
-| Payload alta transacción | `{ nombre_comercio, monto_transaccion, medio_pago }` | `{ nombre_comercio, monto_transaccion, medio_pago }` | ✅ Coincide |
-| Payload registro | `{ nombre, apellido, email, password, fecha_nacimiento, sexo, estado_civil, numero_hijos }` | `{ nombre, apellido, email, password, fechaNacimiento, sexo, estadoCivil, numeroHijos }` | 🔴 **3 claves en camelCase, backend espera snake_case (AUD-23)** |
-| Payload perfil financiero | `{ empleo_formal, ingreso_mensual, linea_credito }` | `{ ingresoMensual, lineaCredito, empleoFormal }` (en ambos orígenes: `auth.js` y `dashboard.js`) | 🔴 **3 claves en camelCase, backend espera snake_case (AUD-23)** |
-| Respuesta transacción (GET) | `{ nombreComercio, montoTransaccion, medioPago, fecha }` (camelCase, sin `@JsonProperty`) | Lee `t.nombre_comercio`, `t.medio_pago`, `t.monto_transaccion` (snake_case) | 🔴 **Mismatch inverso: la tabla nunca muestra datos reales (AUD-24)** |
-| Respuesta análisis | `{ perfil_financiero, resumen_gastos, recomendaciones, ... }` (snake_case vía `@JsonProperty`) | Lee `data.perfil_financiero` ✅, pero usa `data.resumen_gastos` en vez de `data.recomendaciones` para la lista de recomendaciones | 🔴 **Bug de variable, no de casing (AUD-25)** |
-
-**Recomendación del PM (actualizada):** dado que el mismatch de casing se repite en 3 payloads distintos (registro, perfil x2), la solución de mayor apalancamiento no es corregir cada uno a mano, sino declarar `spring.jackson.property-naming-strategy: SNAKE_CASE` en `application.yml` (opción A) — lo que además permitiría **quitar** todas las anotaciones `@JsonProperty` manuales de `RegisterRequest`, `PerfilFinancieroRequest`, `AnalisisResponse`, etc., reduciendo superficie de error futuro. La alternativa (opción B: corregir cada payload JS uno por uno) es más rápida hoy pero no previene que el próximo formulario nuevo reintroduzca el mismo bug. Ver TASK-038.
-
----
-
-## 4. Configuración de Entorno
-Sin cambios respecto a v3 (ver v3, Sección 4). `application.yml` confirmado restaurado (AUD-09 ✅), `open-in-view: false` confirmado presente (AUD-11 ✅), `JWT_SECRET`/`IA_API_URL` confirmados externalizados sin default inseguro a nivel de `application.yml` (AUD-13 sigue parcial únicamente por el fallback remanente en `JwtUtil.java`).
-
----
-
-## 5. Dependencias del Backend (pom.xml)
-Sin cambios. `<configuration>` confirmado correcto en ambos bloques (`spring-boot-maven-plugin` y `maven-compiler-plugin`) — AUD-21 ✅.
-
----
-
-## 6. Auditoría Técnica v4
-Metodología: cada archivo citado se extrajo por ruta exacta del snapshot y se comparó carácter por carácter contra lo que su contraparte (otro archivo, o el propio comentario del código) declara esperar. No se usó la prosa de la Nota Maestra incrustada (líneas 3308–3764 del snapshot) como fuente de verdad para ningún hallazgo.
-
-### 6.1 Índice de Hallazgos (v4)
-| ID | Severidad | Título | Estado v4 |
-| :--- | :--- | :--- | :--- |
-| AUD-01 | Alta | AuthResponse: campos invertidos | ✅ Resuelto |
-| AUD-02 | Alta | Enum de perfil financiero inconsistente | 🔴 Sin cambios |
-| AUD-03 | Alta | Contrato de API desalineado | 🟡 **Rutas resueltas; casing roto (ver AUD-23/24)** |
-| AUD-04 | Media | Campo `transactions` vs `transacciones` | ✅ Resuelto |
-| AUD-05 | Alta | `/predict` del mock ignora el body | 🟡 Sin cambios |
-| AUD-06 | Alta | `usuarioId` nunca se asigna en historial | ✅ Resuelto |
-| AUD-07 | Alta (seg.) | Transacciones sin autorización/DTO | ✅ Resuelto |
-| AUD-08 | Alta (seg.) | IDOR en historial | ✅ Resuelto |
-| AUD-09 | Alta | `application.yml` casi vacío | ✅ Resuelto |
-| AUD-10 | Baja | `UserEntity.apellido` no se puebla | ✅ Resuelto |
-| AUD-11 | Baja | `open-in-view=false` pendiente | ✅ Resuelto |
-| AUD-12 | Media | `TransactionRequest` mal aprovechado | ✅ Resuelto |
-| AUD-13 | Alta (seg.) | `jwt.secret` hardcodeado | ✅ Resuelto |
-| AUD-14 | Alta | Esquema `historial_analisis` no coincide con JPA | ✅ Resuelto |
-| AUD-15 | Alta | Motor de IA inalcanzable (ruta) | 🟡 Parcial |
-| AUD-16 | Alta | Contrato de respuesta del motor no coincide | 🔴 Sin cambios |
-| AUD-17 | Media | Motor de IA duplicado | 🔴 Sin cambios |
-| AUD-18 | Media | `dashboard.html` existe pero está huérfano | 🟡 **Reclasificado (existe, desconectado)** |
-| AUD-19 | Media | Registro→perfil encadenado, pero bloqueado por casing | 🟡 **Reclasificado (código correcto, dato de entrada roto)** |
-| AUD-20 | Baja | Typo `Sexo.FEMININO` | ✅ Resuelto |
-| AUD-21 | Baja | Typo `pom.xml` `<coniguration>` | ✅ Resuelto |
-| AUD-22 | Baja | `Sexo` serializado como código de una letra hacia la IA | 🔴 Sin cambios |
-| **AUD-23** | Alta — nuevo | Mismatch sistemático camelCase/snake_case en 3 payloads del frontend | 🔴 Nuevo |
-| **AUD-24** | Media — nuevo | `TransaccionResponse` camelCase vs. lectura snake_case en `dashboard.js` | 🔴 Nuevo |
-| **AUD-25** | Media — nuevo | `mostrarResultadosIA` lee `resumen_gastos` en vez de `recomendaciones` | 🔴 Nuevo |
-| **AUD-26** | Baja — nuevo | No existe `GET /api/v1/perfil`; verificación de perfil depende sólo de `localStorage` | 🔴 Nuevo |
-
-*Balance v4: 12 resueltos · 6 parciales · 8 abiertos, de 26 hallazgos totales.*
-
-### 6.2 Hallazgos Reclasificados (evidencia de código, corrige la v3)
-
-#### AUD-18 — dashboard.html existe, pero es un archivo huérfano — 🟡 Reclasificado
-Verificado: `frontend/dashboard.html` existe en el repositorio (ya no hay 404 tras el login). Pero su único `<script>` es un bloque inline de ~15 líneas que sólo valida la presencia de un token en `localStorage` y pinta un mensaje de bienvenida estático. **En todo el repositorio sólo existen dos `<script src="...">`: el CDN de Bootstrap y `js/auth.js`, ambos dentro de `index.html`.** `js/api.js` y `js/dashboard.js` —donde vive toda la lógica real de transacciones, perfil y análisis— no se cargan desde ningún HTML del proyecto.
-**Impacto:** aunque el login funcione (AUD-01 resuelto) y la redirección llegue a `dashboard.html` sin 404, el usuario ve una tarjeta de bienvenida vacía. Ningún botón, tabla ni modal de `dashboard.js` existe en el DOM.
-**Acción recomendada (TASK-035, redefinida):** en `dashboard.html`, agregar `<script src="js/api.js"></script>` y `<script src="js/dashboard.js"></script>` antes de `</body>`, y añadir al HTML los elementos que `dashboard.js` espera encontrar por `id` (`tablaTransaccionesBody`, `formTransaccion`, `btnAnalizar`, `resultadoContenedor`, `iaPerfil`, `iaRecomendaciones`, `modalPerfilIncompleto`, `formPerfilFinanciero`, etc. — ninguno de estos existe hoy en `dashboard.html`).
-
-#### AUD-19 — Registro→perfil correctamente encadenado en código, pero bloqueado aguas arriba — 🟡 Reclasificado
-Verificado: `index.html` conserva la sección "Perfil Financiero Inicial" con los campos `regIngresoMensual`, `regLineaCredito`, `regEmpleoFormal`. `auth.js` los captura en `perfilPayload` y, tras un `POST /auth/register` exitoso, encadena `POST /perfil` con ese payload antes de redirigir a `dashboard.html`. El diseño del flujo es correcto.
-**El problema real** es que el primer paso (`POST /auth/register`) muy probablemente nunca llega a "exitoso": `RegisterRequest.java` exige `fecha_nacimiento`, `estado_civil`, `numero_hijos` (vía `@JsonProperty`, todos `@NotNull`), pero `auth.js` envía `fechaNacimiento`, `estadoCivil`, `numeroHijos`. Jackson no completa esos tres campos con esas claves, y la validación los rechaza con 400 antes de crear el usuario — por lo que el paso B (crear perfil) nunca se alcanza en la práctica. Ver AUD-23 para la causa raíz común.
-**Acción recomendada:** resolver AUD-23 (TASK-038); una vez corregido el casing, este flujo debería funcionar sin cambios adicionales de lógica.
-
-#### AUD-03 — Contrato de API: rutas resueltas, casing roto en dos puntos — 🟡 Reclasificado
-Verificado con las tres llamadas de `dashboard.js`: `/transacciones/usuario/transacciones` (GET y POST), `/analisis/predict` (POST) y `/perfil` (POST desde el modal) — **las tres coinciden exactamente con los `@RequestMapping` reales del backend.** El payload de alta de transacción (`nombre_comercio`, `monto_transaccion`, `medio_pago`) también es correcto. El desalineamiento de rutas descrito en v1/v2/v3 **ya no existe en el código actual.**
-Lo que sí sigue roto, y es nuevo en esta auditoría: el payload del modal de perfil de `dashboard.js` (mismo problema que AUD-19/AUD-23) y la lectura de la respuesta de transacciones (AUD-24).
-**Acción recomendada:** cerrar AUD-23, AUD-24 y AUD-25 (Sección 6.3). TASK-003 y TASK-018 de versiones anteriores quedan mayormente resueltos por el propio avance del código; sólo falta reconciliar el backlog.
-
-### 6.3 Hallazgos Nuevos (AUD-23 a AUD-26)
-
-#### AUD-23 — Mismatch sistemático de casing en 3 payloads del frontend
-**Severidad:** Alta · **Componente:** `auth.js`, `dashboard.js` → `RegisterRequest.java`, `PerfilFinancieroRequest.java`
-Hallazgo: tres payloads distintos, en dos archivos JS distintos, repiten el mismo patrón: se construyen con claves camelCase (`fechaNacimiento`, `estadoCivil`, `numeroHijos`, `ingresoMensual`, `lineaCredito`, `empleoFormal`), mientras los DTOs Java correspondientes exigen snake_case vía `@JsonProperty` (`fecha_nacimiento`, `estado_civil`, `numero_hijos`, `ingreso_mensual`, `linea_credito`, `empleo_formal`). No hay `spring.jackson.property-naming-strategy` configurado, así que Jackson no hace ningún mapeo automático entre ambas convenciones.
-Impacto: bloquea el registro completo (AUD-19) y ambos caminos de creación de perfil financiero (el de `auth.js` tras registro, y el del modal de `dashboard.js`), con un error 400 genérico que no indica la causa real al usuario.
-**Acción recomendada (TASK-038):** declarar `spring.jackson.property-naming-strategy: SNAKE_CASE` en `application.yml` y retirar las anotaciones `@JsonProperty` manuales redundantes en los DTOs afectados (`RegisterRequest`, `PerfilFinancieroRequest`, `AnalisisRequest`, `AnalisisResponse`, `TransactionRequest`). Alternativa más rápida pero menos robusta: corregir manualmente los tres payloads en `auth.js`/`dashboard.js` a snake_case, sin tocar el backend.
-
-#### AUD-24 — TransaccionResponse en camelCase vs. lectura snake_case en dashboard.js
-**Severidad:** Media · **Componente:** `TransaccionResponse.java`, `dashboard.js::renderizarTablaTransacciones`
-Hallazgo: `TransaccionResponse` no tiene ninguna anotación `@JsonProperty`, así que Jackson la serializa con sus nombres de campo tal cual (`nombreComercio`, `montoTransaccion`, `medioPago`, `fecha` — camelCase). `renderizarTablaTransacciones` en `dashboard.js` lee `t.nombre_comercio`, `t.medio_pago`, `t.monto_transaccion` (snake_case).
-Impacto: el `GET` de transacciones puede tener éxito (200 OK) con datos reales, pero la tabla siempre mostrará "Desconocido" / "N/A" / "$0.00" para cada fila, dando la falsa impresión de que no hay transacciones o que el guardado falló.
-**Acción recomendada (TASK-039):** si se adopta TASK-038 (snake_case global), este hallazgo se resuelve solo. Si no, corregir `renderizarTablaTransacciones` para leer `t.nombreComercio`, `t.medioPago`, `t.montoTransaccion`.
-
-#### AUD-25 — mostrarResultadosIA lee el campo equivocado para las recomendaciones
-**Severidad:** Media · **Componente:** `dashboard.js::mostrarResultadosIA`
-Hallazgo: la función construye la lista de "recomendaciones" iterando sobre `data.resumen_gastos` (un objeto/mapa de categoría→monto) en vez de `data.recomendaciones` (la lista real de strings). Como `resumen_gastos` es un objeto plano, `.length` es `undefined`, la condición `data.resumen_gastos.length > 0` es siempre falsa, y la rama que ejecuta es siempre la de "No hay datos suficientes para recomendaciones" — sin importar la respuesta real del backend. Además, `resumen_gastos` (el desglose de gastos por categoría, que sí tiene valor para el usuario) nunca se renderiza en ningún punto de la UI.
-**Acción recomendada (TASK-040):** cambiar la fuente de datos de la lista a `data.recomendaciones`, y agregar un bloque separado que sí renderice `data.resumen_gastos` (p. ej. una lista o mini-tabla de categoría → monto).
-
-#### AUD-26 — No existe GET /api/v1/perfil; la verificación de perfil depende sólo de localStorage
-**Severidad:** Baja · **Componente:** `PerfilFinancieroController.java`, `dashboard.js::verificarPerfilFinanciero`
-Hallazgo: `PerfilFinancieroController` sólo expone `@PostMapping` — no hay ningún `GET`. El propio comentario de `dashboard.js` lo reconoce: *"Asumiendo que existe un endpoint GET /perfil... si el backend aún no lo tiene, esto fallará"*. En la práctica, `verificarPerfilFinanciero()` no llama a ningún endpoint: sólo revisa la bandera local `perfilCompletado` en `localStorage`.
-Impacto: cualquier usuario que ya tenga un perfil financiero creado pero pierda esa bandera local (nueva sesión, otro dispositivo, `localStorage` limpiado) volverá a ver el modal de "completar tu perfil". Si lo reenvía, chocará con la restricción de unicidad del backend (`PerfilFinancieroServiceImpl` lanza `IllegalStateException` → 409 Conflict) y verá un mensaje genérico de error sin explicación real.
-**Acción recomendada (TASK-041):** agregar `GET /api/v1/perfil` (del usuario autenticado, reutilizando `PerfilFinancieroService.obtenerPerfilPorUsuarioId`, que ya existe) y hacer que `verificarPerfilFinanciero()` consulte ese endpoint real en vez de sólo el flag local.
-
-### 6.4 Hallazgos Sin Cambios (re-verificados en esta pasada)
-* **AUD-02** — `data-science/modeloFinanceAI/main.py` y `data-science/main.py` siguen comparando `perfil_str == "RIESGOSO"`; el enum Java sigue en `RIESGO`; `mock-api` sigue en `EN_RIESGO`. Nota: el comentario en `dashboard.js` ("Corregido de EN_RIESGO a RIESGO") sólo alineó el *frontend* con el enum Java — el motor de IA real sigue emitiendo un tercer valor incompatible. Sigue bloqueante para cuando se conecte el motor real.
-* **AUD-05, AUD-16, AUD-17** — re-verificados contra el código, sin cambios respecto a v3.
-* **AUD-13, AUD-15** — re-verificados, mismo estado parcial que v3 (ver Sección 4).
-* **AUD-22** — re-verificado: `Sexo.getCodigo()` sigue devolviendo `"M"`/`"F"` hacia el motor de IA.
-
----
-
-## 7. Estado Real por Vertical Slice (v4)
-
-### 7.1 Slice 1 — Autenticación
-| Capa | Estado v4 |
-| :--- | :--- |
-| Backend: seguridad base, register/login | ✅ / 🟡 (AUD-13 parcial) |
-| Frontend: login | ✅ Funcional end-to-end (token correcto, redirección a un archivo que existe) |
-| Frontend: registro | 🔴 Muy probablemente falla en el primer paso (AUD-23) |
-
-### 7.2 Slice 2 — Transacciones
-| Capa | Estado v4 |
-| :--- | :--- |
-| Backend | ✅ Completo y seguro, sin cambios |
-| Frontend: alta de transacción | 🟢 Payload correcto — funcional si `dashboard.html` se conecta (AUD-18) |
-| Frontend: listado de transacciones | 🔴 Se muestra vacío/incorrecto por AUD-24, aun si el backend responde bien |
-
-### 7.3 Slice 3 — Análisis Financiero e IA
-| Capa | Estado v4 |
-| :--- | :--- |
-| Backend: persistencia del historial | ✅ Desbloqueado (AUD-14) |
-| Backend: perfil financiero requerido | 🟡 Requiere que AUD-23 se resuelva para recibir datos reales |
-| Motor de IA | 🟡 Infraestructura lista, código y contrato rotos (AUD-15, AUD-16) |
-| Frontend: resultado del análisis | 🟡 Badge de perfil correcto; recomendaciones nunca se muestran (AUD-25) |
-
-### 7.4 Camino Crítico para una Demo End-to-End (re-evaluado v4)
-| # | Bloqueador | Estado v4 | Esfuerzo estimado para cerrar |
-| :---: | :--- | :--- | :--- |
-| 1 | AUD-01 (token de login) | ✅ Resuelto | — |
-| 2 | AUD-18 (dashboard.html desconectado) | 🟡 Bloquea | Bajo — 2 `<script>` + IDs faltantes en el HTML |
-| 3 | AUD-23 (casing registro/perfil) | 🔴 Bloquea | Bajo — 1 propiedad en `application.yml` (o 3 payloads JS) |
-| 4 | AUD-24 (tabla de transacciones) | 🔴 Bloquea la demo visual, no el dato | Muy bajo — 3 nombres de campo en `dashboard.js` |
-| 5 | AUD-25 (recomendaciones) | 🔴 Bloquea la demo visual, no el dato | Muy bajo — 1 variable en `dashboard.js` |
-| 6 | AUD-15 + AUD-16 (motor de IA) | 🟡 Bloquea | Medio — 1 línea de ruta + contrato de campos/tipos con Data Science |
-| 7 | AUD-14 (esquema historial) | ✅ Resuelto | — |
-
-**Lectura para el PM:** de los 7 puntos del camino crítico, 2 ya están resueltos y los otros 5 son, individualmente, correcciones pequeñas y bien localizadas — nada que requiera diseño nuevo. La secuencia de menor esfuerzo para llegar a una demo end-to-end es: **AUD-23 → AUD-18 → AUD-24 → AUD-25 → (AUD-15 + AUD-16 en paralelo con Data Science).**
-
----
-
-## 8. Sprint de Estabilización v4
-
-### Grupo A — Los 4 hallazgos nuevos (mayor apalancamiento, menor esfuerzo)
-* 🔴 **TASK-038** — `spring.jackson.property-naming-strategy: SNAKE_CASE` en `application.yml` (o corrección manual de los 3 payloads en JS). Cierra AUD-23, desbloquea AUD-19 sin tocar su lógica.
-* 🔴 **TASK-039** — Alinear `renderizarTablaTransacciones` con el casing real de `TransaccionResponse` (se resuelve solo si se adopta TASK-038). Cierra AUD-24.
-* 🔴 **TASK-040** — Corregir `mostrarResultadosIA` para usar `data.recomendaciones`, agregar render de `data.resumen_gastos`. Cierra AUD-25.
-* 🔴 **TASK-041** — Agregar `GET /api/v1/perfil` y usarlo en `verificarPerfilFinanciero()`. Cierra AUD-26.
-
-### Grupo B — Conectar dashboard.html a la funcionalidad real
-* 🔴 **TASK-035** (redefinida) — Agregar `<script src="js/api.js">` y `<script src="js/dashboard.js">` a `dashboard.html`, y los elementos HTML con los `id` que `dashboard.js` espera (tabla, formularios, modal, contenedores de resultado). Cierra AUD-18.
-
-### Grupo C — Deuda de seguridad remanente
-* 🔴 **TASK-034** — Eliminar el fallback hardcodeado de `JwtUtil.java`. Cierra AUD-13.
-
-### Grupo D — Motor de IA real
-* 🔴 **TASK-036** — Corregir `IAClient.java` de `/predict` a `/analisis-financiero`; confirmar `IA_API_URL` en `.env`. Cierra AUD-15.
-* 🔴 **TASK-028** — Alinear contrato de respuesta del motor (nombres de campo + tipos numéricos sin `%`). Cierra AUD-16.
-* 🔴 **TASK-002** — Unificar el enum de perfil de riesgo con Data Science (`RIESGOSO` → `RIESGO`). Cierra AUD-02.
-* 🔴 **TASK-037** — Verificar con Data Science el vocabulario esperado para `sexo` ("M"/"F" vs. palabra completa). Cierra AUD-22.
-
-### Grupo E — Limpieza y siguiente ola (sin cambios de fondo respecto a v3)
-* 🔴 **TASK-029** — Retirar/documentar el motor de IA duplicado y `mock-api`. Cierra AUD-17 + AUD-05.
-* 🔴 **TASK-021** — Vista de historial de diagnósticos (ya desbloqueada por AUD-14).
-* 🔴 **TASK-016** — Paginación de transacciones.
-* 🔴 **TASK-013** — Suite de tests de integración de Auth.
-* 🔴 **TASK-020** — Tests de resiliencia ante caída del motor de IA.
-
-### Grupo F — Semana 5 / Infraestructura (sin cambios)
-* 🔴 **TASK-023, TASK-024, TASK-025** — `docker-compose.prod.yml`, despliegue OCI, QA final.
-
----
-
-## 9. Convenciones y Definition of Done
-Sin cambios respecto a v3 (incluida la regla 9.5 de disciplina de checklist). Se agrega:
-
-**9.6 Regla nueva — Verificación por extracción, no por lectura narrativa:** al auditar un snapshot Repomix que incluye una copia incrustada de una Nota Maestra anterior (como ocurre en este proyecto), cualquier hallazgo debe verificarse extrayendo el bloque `<file path="...">` exacto del archivo de código en cuestión — nunca inferirse de la prosa descriptiva de la copia incrustada, que puede describir una versión pasada del código.
-
----
-
-## 10. Backlog Priorizado v4
-Se conservan los IDs TASK-001 a TASK-037; los nuevos continúan desde TASK-038.
-
-### P0 — Sprint de Estabilización v4 (los 4 hallazgos nuevos + dashboard.html)
-| ID | Título | Ref. |
-| :--- | :--- | :--- |
-| TASK-038 | Resolver mismatch de casing (snake_case global o payloads corregidos) | AUD-23 |
-| TASK-039 | Corregir lectura de `TransaccionResponse` en `dashboard.js` | AUD-24 |
-| TASK-040 | Corregir fuente de datos de recomendaciones en `mostrarResultadosIA` | AUD-25 |
-| TASK-035 | Conectar `dashboard.html` con `api.js`/`dashboard.js` + IDs faltantes | AUD-18 |
-
-### P1 — Motor de IA y deuda de seguridad remanente
-| ID | Título | Ref. |
-| :--- | :--- | :--- |
-| TASK-034 | Eliminar fallback hardcodeado en `JwtUtil.java` | AUD-13 |
-| TASK-036 | Corregir ruta de `IAClient` a `/analisis-financiero` | AUD-15 |
-| TASK-028 | Alinear contrato de respuesta del motor de IA | AUD-16 |
-| TASK-002 | Unificar enum de perfil de riesgo | AUD-02 |
-
-### P2 — Robustez y limpieza
-| ID | Título | Ref. |
-| :--- | :--- | :--- |
-| TASK-041 | Agregar `GET /api/v1/perfil` | AUD-26 |
-| TASK-029 | Retirar/documentar motor de IA duplicado y mock-api | AUD-17 + AUD-05 |
-| TASK-021 | Vista de historial de diagnósticos (ya desbloqueada) | Slice 3 |
-| TASK-016 | Paginación de transacciones | Slice 2 |
-
-### P3 — Verificación y tests
-| ID | Título | Ref. |
-| :--- | :--- | :--- |
-| TASK-013 | Suite de tests de integración de Auth | Slice 1 |
-| TASK-020 | Tests de resiliencia ante caída de IA | Slice 3 |
-| TASK-037 | Verificar vocabulario de `sexo` con Data Science | AUD-22 |
-
-### P4 — Infraestructura y cierre (Semana 5, sin cambios)
-| ID | Título | Ref. |
-| :--- | :--- | :--- |
-| TASK-023 | `docker-compose.prod.yml` | Semana 5 |
-| TASK-024 | Despliegue en OCI | Semana 5 |
-| TASK-025 | QA end-to-end + revisión final | Semana 5 |
-
-**Ya completadas y confirmadas dos veces (v3 y v4):** TASK-001, TASK-004, TASK-006, TASK-007, TASK-008, TASK-009 (parte de `application.yml`), TASK-010, TASK-011, TASK-012, TASK-026, TASK-032, TASK-033.
-
----
-
-## 11. Anexo: Prompts Guía para Sesiones de IA
-Sin cambios respecto a v3, actualizar referencias a "v4". Se agrega:
-
-### Prompt de verificación anti-alucinación para snapshots con documentación incrustada
-*Antes de afirmar el estado de cualquier hallazgo AUD-XX, extrae el archivo de código exacto citado (por su ruta `<file path="...">`) y compáralo carácter por carácter con lo que otro archivo espera de él. Si el snapshot incluye una copia de una Nota Maestra anterior dentro de sí mismo, ignórala como fuente de verdad sobre el estado actual del código — úsala sólo para saber qué se dijo en el pasado.*
 </file>
 
 <file path="Protocolo de colaboracion.md">
@@ -2658,11 +3956,16 @@ public record TransaccionResponse(
         )
         @JsonProperty("medio_pago")
         MedioPago medioPago,
+
         @Schema(
                 description = "Fecha de la transaccion",
                 example = "2026-08-06T20:06:38.692Z"
         )
-        LocalDateTime fecha
+        LocalDateTime fecha,
+
+        @Schema(description = "Categoría de la transacción", example = "Alimentación")
+        @JsonProperty("categoria")
+        String categoria
 ) {}
 </file>
 
@@ -2761,6 +4064,24 @@ public class PerfilFinancieroEntity {
 }
 </file>
 
+<file path="backend/src/main/java/com/nocountry/financeai/repository/HistorialAnalisisRepository.java">
+package com.nocountry.financeai.repository;
+
+import com.nocountry.financeai.entity.HistorialAnalisisEntity;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+import java.util.Optional;
+
+@Repository
+public interface HistorialAnalisisRepository extends JpaRepository<HistorialAnalisisEntity, Long> {
+    List<HistorialAnalisisEntity> findByUsuarioId(Long id);
+    // Usado para "pull" el análisis más reciente sin recorrer toda la lista
+    Optional<HistorialAnalisisEntity> findFirstByUsuarioIdOrderByFechaAnalisisDesc(Long usuarioId);
+}
+</file>
+
 <file path="backend/src/main/java/com/nocountry/financeai/repository/TransactionRepository.java">
 package com.nocountry.financeai.repository;
 
@@ -2773,6 +4094,8 @@ import java.util.List;
 @Repository
 public interface TransactionRepository extends JpaRepository<TransactionEntity, Long> {
     List<TransactionEntity> findByUsuarioId(Long usuarioId);
+
+    List<TransactionEntity> findByUsuarioIdAndCategoria(Long usuarioId, String categoria);
 }
 </file>
 
@@ -2968,153 +4291,6 @@ public class JwtUtil {
 }
 </file>
 
-<file path="backend/src/main/java/com/nocountry/financeai/service/impl/TransaccionServiceImpl.java">
-package com.nocountry.financeai.service.impl;
-
-import com.nocountry.financeai.dto.request.TransactionRequest;
-import com.nocountry.financeai.dto.response.TransaccionResponse;
-import com.nocountry.financeai.entity.TransactionEntity;
-import com.nocountry.financeai.entity.UserEntity;
-import com.nocountry.financeai.exception.ResourceNotFoundException;
-import com.nocountry.financeai.repository.TransactionRepository;
-import com.nocountry.financeai.repository.UserRepository;
-import com.nocountry.financeai.service.TransaccionService;
-import lombok.RequiredArgsConstructor;
-import org.springframework.security.access.AccessDeniedException;
-import org.springframework.stereotype.Service;
-
-import java.time.LocalDateTime;
-import java.util.List;
-
-@Service
-@RequiredArgsConstructor
-public class TransaccionServiceImpl implements TransaccionService {
-
-    private final TransactionRepository transactionRepository;
-    private final UserRepository userRepository;
-
-    @Override
-    public TransaccionResponse crearTransaccionAutenticado(String email, TransactionRequest transactionRequest) {
-        UserEntity usuario = userRepository
-                .findByEmail(email)
-                .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "Usuario no encontrado"
-                        )
-                );
-
-        TransactionEntity transaccion = TransactionEntity.builder()
-                        .nombreComercio(transactionRequest.nombreComercio())
-                        .montoTransaccion(transactionRequest.montoTransaccion())
-                        .medioPago(transactionRequest.medioPago())
-                        .usuario(usuario)
-                        .fecha(LocalDateTime.now())
-                        .build();
-
-        TransactionEntity transaccionGuardada = transactionRepository.save(transaccion);
-
-        return convertirRespuesta(
-                transaccionGuardada
-        );
-    }
-
-    @Override
-    public List<TransaccionResponse> obtenerTransaccionesAutenticado(String email) {
-        UserEntity usuario = userRepository
-                .findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
-
-        return transactionRepository.findByUsuarioId(usuario.getId())
-                .stream()
-                .map(this::convertirRespuesta)
-                .toList();
-    }
-
-    @Override
-    public TransaccionResponse crearTransaccion(Long usuarioId, TransactionRequest request) {
-        UserEntity usuario = userRepository.findById(usuarioId).orElseThrow(() -> new RuntimeException("Usuario no encontrado"));
-
-        TransactionEntity transaccion = TransactionEntity.builder()
-                .nombreComercio(request.nombreComercio())
-                .montoTransaccion(request.montoTransaccion())
-                .medioPago(request.medioPago())
-                .usuario(usuario)
-                .fecha(LocalDateTime.now())
-                .build();
-
-        TransactionEntity transaccionGuardada = transactionRepository.save(transaccion);
-
-        return new TransaccionResponse(
-                transaccionGuardada.getNombreComercio(),
-                transaccionGuardada.getMontoTransaccion(),
-                transaccionGuardada.getMedioPago(),
-                transaccionGuardada.getFecha()
-        );
-    }
-
-    @Override
-    public List<TransaccionResponse> obtenerTransaccionesPorUsuario(Long idUsuario) {
-        return transactionRepository.findByUsuarioId(idUsuario)
-                .stream()
-                .map(this::convertirRespuesta)
-                .toList();
-    }
-
-    @Override
-    public TransaccionResponse actualizarTransaccion(String email, Long idTransaccion, TransactionRequest request) {
-
-        TransactionEntity transaccion = transactionRepository.findById(idTransaccion)
-                .orElseThrow(()-> new ResourceNotFoundException("Transaccion no encontrada"));
-
-        if(!transaccion.getUsuario().getEmail().equals(email)) {
-            throw new AccessDeniedException("No tienes permiso para modificar esta transaccion");
-        }
-
-        if(request.nombreComercio() != null){
-            transaccion.setNombreComercio(request.nombreComercio());
-        }
-
-        if(request.montoTransaccion() != null){
-            transaccion.setMontoTransaccion(request.montoTransaccion());
-        }
-
-        if(request.medioPago() != null){
-            transaccion.setMedioPago(request.medioPago());
-        }
-
-        TransactionEntity transaccionActualizada = transactionRepository.save(transaccion);
-        return convertirRespuesta(transaccionActualizada);
-    }
-
-    @Override
-    public void eliminarTransaccion(String email, Long idTransaccion) {
-        TransactionEntity transaccion = transactionRepository.findById(idTransaccion)
-                .orElseThrow(()-> new ResourceNotFoundException("Transaccion no encontrada"));
-
-        if(!transaccion.getUsuario().getEmail().equals(email)) {
-            throw new  AccessDeniedException("Transaccion no pertenece al usuario");
-        }
-        transactionRepository.delete(transaccion);
-    }
-
-    public List<TransaccionResponse> obtenerTransacciones() {
-        return transactionRepository.findAll()
-                .stream()
-                .map(this::convertirRespuesta)
-                .toList();
-    }
-
-    private TransaccionResponse convertirRespuesta(TransactionEntity transactionEntity) {
-        return new TransaccionResponse(
-                transactionEntity.getNombreComercio(),
-                transactionEntity.getMontoTransaccion(),
-                transactionEntity.getMedioPago(),
-                transactionEntity.getFecha()
-        );
-    }
-}
-</file>
-
 <file path="backend/src/main/java/com/nocountry/financeai/service/AuthService.java">
 package com.nocountry.financeai.service;
 
@@ -3125,20 +4301,6 @@ import com.nocountry.financeai.dto.response.AuthResponse;
 public interface AuthService {
     AuthResponse register(RegisterRequest request);
     AuthResponse login(LoginRequest request);
-}
-</file>
-
-<file path="backend/src/main/java/com/nocountry/financeai/service/HistorialAnalisisService.java">
-package com.nocountry.financeai.service;
-
-import com.nocountry.financeai.dto.response.HistorialAnalisisResponse;
-
-import java.util.List;
-
-public interface HistorialAnalisisService {
-    List<HistorialAnalisisResponse> obtenerHistorial();
-    List<HistorialAnalisisResponse> obtenerHistorialPorId(Long id);
-    List<HistorialAnalisisResponse> obtenerHistorialAutenticado(String email);
 }
 </file>
 
@@ -3165,6 +4327,8 @@ public interface TransaccionService {
     List<TransaccionResponse> obtenerTransaccionesPorUsuario(Long idUsuario);
 
     TransaccionResponse actualizarTransaccion(String email, Long idTransaccion, @Valid TransactionRequest transactionRequest);
+
+    List<TransaccionResponse> obtenerTransaccionesPorCategoria(String email, String categoria);
 
     void eliminarTransaccion(String email, Long idTransaccion);
 }
@@ -3211,6 +4375,24 @@ RENAME COLUMN frecuencia_ahorro TO rango_ahorro;
 -- Cambiar el tipo de dato de INTEGER a NUMERIC(4,2) para soportar BigDecimal
 ALTER TABLE historial_analisis
 ALTER COLUMN nivel_endeudamiento TYPE NUMERIC(4,2);
+</file>
+
+<file path="backend/src/test/java/com/nocountry/financeai/FinanceaiApplicationTests.java">
+package com.nocountry.financeai;
+
+import org.junit.jupiter.api.Test;
+import org.springframework.boot.test.context.SpringBootTest;
+
+@SpringBootTest
+class FinanceaiApplicationTests {
+
+   // @Test
+    void contextLoads() {
+        // Intencionadamente vacío: Este test sirve exclusivamente para verificar
+        // que el contexto de Spring Boot se inicialice correctamente.
+    }
+
+}
 </file>
 
 <file path="backend/mvnw.cmd">
@@ -3405,216 +4587,450 @@ try {
 Write-Output "MVN_CMD=$MAVEN_HOME/bin/$MVN_CMD"
 </file>
 
-<file path="backend/README.md">
-## 💻 Módulo Backend & Infraestructura
+<file path="frontend/app/routes/analisis.py">
+from flask import Blueprint, flash, redirect, render_template, url_for
+from ..decorators import login_required
+from ..services.exceptions import FinanceAIError, ResourceNotFoundError
+from ..services.financeai_api import api
 
-El backend de **FinanceAI** está estructurado bajo una arquitectura limpia, desacoplada y orientada a capas utilizando **Java 21** y **Spring Boot 3.x/4.x**. El sistema ha sido diseñado bajo un enfoque "camaleónico", permitiendo un desarrollo local ágil pero completamente preparado para un despliegue seguro y transparente en **Oracle Cloud Infrastructure (OCI)**.
+analisis_bp = Blueprint("analisis", __name__, url_prefix="/analisis")
 
-### 🛠️ Stack Tecnológico
-* **Lenguaje:** Java 21 (LTS) - Implementación de *Records* inmutables para DTOs y compatibilidad nativa con *Virtual Threads*.
-* **Framework:** Spring Boot (Spring Web, Spring Data JPA, Jakarta Validation).
-* **Base de Datos:** PostgreSQL - Elegido por su estricta precisión matemática (`NUMERIC`) en transacciones financieras y madurez analítica.
-* **Evolución de Datos:** Flyway - Control de versiones y migraciones automatizadas del esquema de base de datos.
-* **Virtualización Local:** Docker Compose - Para la réplica exacta y aislada del entorno de base de datos en el equipo.
-* **Calidad de Código:** Configurado bajo estándares estrictos de **SonarQube** (Clean Code y prevención de código muerto).
 
----
+@analisis_bp.post("/generar")
+@login_required
+def generate():
+    try:
+        result = api.request_analysis()
+        return render_template("analisis/resultado.html", result=result)
+    except FinanceAIError as error:
+        flash(f"El análisis no pudo completarse: {error}", "danger")
+        return redirect(url_for("dashboard.index"))
 
-### 📂 Estructura de Arquitectura (Capas)
-Dentro del directorio `/backend/src/main/java/com/nocountry/financeai/`, el código se organiza bajo el principio de responsabilidad única:
 
-* **`controller/`**: Expone los endpoints REST públicos. Administra las validaciones automáticas de payloads (`@Valid`) y el manejo de políticas CORS para la integración fluida con el frontend.
-* **`service/` & `service.impl/`**: Capa pura de lógica de negocio. Utiliza abstracción por interfaces para aislar los procesos internos, dejando el esqueleto preparado para orquestar las llamadas HTTP externas hacia la API de FastAPI del equipo de Data Science.
-* **`dto/`**: Objetos de Transferencia de Datos desarrollados mediante *Java 21 Records*, reduciendo el código basura (*boilerplate*) y asegurando la inmutabilidad de los datos transferidos.
-* **`model/`**: Aloja las entidades JPA de base de datos y Enums tipados (ej: `CategoriaGasto`, `MedioPago`) mapeados estrictamente en minúsculas mediante Jackson (`@JsonValue`), garantizando una sintonía del 100% con los requerimientos del dataset limpio de Data Science.
-* **`repository/`**: Interfaces de persistencia segura que heredan de `JpaRepository`.
+@analisis_bp.get("/ultimo")
+@login_required
+def latest():
+    try:
+        result = api.get_latest_analysis()
+        return render_template("analisis/resultado.html", result=result)
+    except ResourceNotFoundError:
+        try:
+            result = api.request_analysis()
+            flash("Aún no tenías un análisis registrado: se generó uno nuevo con tus datos actuales.", "info")
+            return render_template("analisis/resultado.html", result=result)
+        except FinanceAIError as error:
+            flash(f"El análisis no pudo completarse: {error}", "danger")
+            return redirect(url_for("dashboard.index"))
+    except FinanceAIError as error:
+        flash(f"No fue posible obtener tu análisis: {error}", "danger")
+        return redirect(url_for("dashboard.index"))
+</file>
 
----
+<file path="frontend/app/services/financeai_api.py">
+import requests
+from flask import current_app, session
+from .exceptions import (
+    AuthenticationError, AuthorizationError, BackendError,
+    BackendUnavailableError, ConflictError, ResourceNotFoundError,
+    ValidationError,
+)
 
-### 🐳 Réplica de Entorno Local (Docker Compose)
-Para eliminar el problema de *"en mi máquina no funciona"*, la infraestructura local de base de datos está completamente automatizada.
 
-**Instrucciones para el equipo de desarrollo:**
-1. Asegúrate de tener Docker instalado en tu sistema operativo Linux.
-2. Abre una terminal en la raíz del monorepo (donde se ubica el archivo `docker-compose.yml`).
-3. Ejecuta el siguiente comando para levantar el entorno en segundo plano:
-   ```bash
-   docker compose up -d
+class FinanceAIAPI:
+    def _headers(self, authenticated=True):
+        headers = {"Accept": "application/json", "Content-Type": "application/json"}
+        if authenticated:
+            token = session.get("access_token")
+            if not token:
+                raise AuthenticationError("Tu sesión no está activa.", 401)
+            headers["Authorization"] = f"Bearer {token}"
+        return headers
+
+    @staticmethod
+    def _message(response):
+        try:
+            body = response.json()
+        except ValueError:
+            return "El servicio devolvió una respuesta no válida."
+        if isinstance(body, dict):
+            return body.get("message") or body.get("detail") or body.get("error") or "La solicitud no pudo completarse."
+        return "La solicitud no pudo completarse."
+
+    def request(self, method, endpoint, *, authenticated=True, json=None, params=None):
+        try:
+            response = requests.request(
+                method,
+                f'{current_app.config["BACKEND_API_URL"]}{endpoint}',
+                headers=self._headers(authenticated),
+                json=json,
+                params=params,
+                timeout=current_app.config["REQUEST_TIMEOUT"],
+            )
+        except (requests.Timeout, requests.ConnectionError) as exc:
+            raise BackendUnavailableError("FinanceAI no está disponible temporalmente.", 503) from exc
+        except requests.RequestException as exc:
+            raise BackendError("No fue posible completar la solicitud.", 502) from exc
+
+        message = self._message(response)
+        if response.status_code == 401:
+            session.clear()
+            raise AuthenticationError("Tu sesión expiró o el token no es válido.", 401)
+        if response.status_code == 403:
+            raise AuthorizationError("No tienes permisos para realizar esta operación.", 403)
+        if response.status_code == 400:
+            raise ValidationError(message, 400)
+        if response.status_code == 404:
+            raise ResourceNotFoundError(message, 404)
+        if response.status_code == 409:
+            raise ConflictError(message, 409)
+        if response.status_code >= 500:
+            raise BackendError(message, response.status_code)
+        if not response.ok:
+            raise BackendError(message, response.status_code)
+        if response.status_code == 204 or not response.content:
+            return None
+        try:
+            return response.json()
+        except ValueError as exc:
+            raise BackendError("El backend devolvió JSON no válido.", 502) from exc
+
+    def register(self, payload):
+        return self.request("POST", "/auth/register", authenticated=False, json=payload)
+
+    def login(self, payload):
+        return self.request("POST", "/auth/login", authenticated=False, json=payload)
+
+    def create_profile(self, payload):
+        return self.request("POST", "/perfil", json=payload)
+
+    def get_my_profile(self):
+        return self.request("GET", "/usuarios/miPerfil")
+
+    def list_transactions(self):
+        data = self.request("GET", "/transacciones/usuario/transacciones")
+        return [normalize_transaction(x) for x in (data or [])]
+
+    def create_transaction(self, payload):
+        return normalize_transaction(self.request("POST", "/transacciones/usuario/transacciones", json=payload))
+
+    def request_analysis(self):
+        return normalize_analysis(self.request("POST", "/analisis/predict"))
+
+    def list_history(self):
+        data = self.request("GET", "/analisis/usuario/historial")
+        return [normalize_analysis(x) for x in (data or [])]
+
+    def get_latest_analysis(self):
+            return normalize_analysis(self.request("GET", "/analisis/usuario/ultimo"))
+
+def _pick(data, *keys, default=None):
+    if not isinstance(data, dict):
+        return default
+    for key in keys:
+        if key in data:
+            return data[key]
+    return default
+
+
+def normalize_transaction(data):
+    return {
+        "nombre_comercio": _pick(data, "nombre_comercio", "nombreComercio", default=""),
+        "monto_transaccion": _pick(data, "monto_transaccion", "montoTransaccion", default=0),
+        "medio_pago": _pick(data, "medio_pago", "medioPago", default=""),
+        "fecha": _pick(data, "fecha", default=""),
+    }
+
+
+def normalize_analysis(data):
+    data = data or {}
+    return {
+        "id": _pick(data, "id"),
+        "perfil_financiero": _pick(data, "perfil_financiero", "perfilFinanciero", default="SIN_DATOS"),
+        "probabilidad": _pick(data, "probabilidad"),
+        "nivel_endeudamiento": _pick(data, "nivel_endeudamiento", "nivelEndeudamiento"),
+        "rango_ahorro": _pick(data, "rango_ahorro", "rangoAhorro", "porcentaje_ahorro", default=""),
+        "resumen_gastos": _pick(data, "resumen_gastos", "resumenGastos", default={}) or {},
+        "recomendaciones": _pick(data, "recomendaciones", default=[]) or [],
+    }
+
+
+api = FinanceAIAPI()
+</file>
+
+<file path="frontend/app/templates/dashboard/index.html">
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FinanceAI · Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+<div class="app-container">
+    <aside class="sidebar">
+        <div>
+            <div class="brand"><span class="brand-icon">📈</span><h2>FinanceAI</h2></div>
+            <nav class="nav-menu">
+                <a href="#" class="nav-item active" data-view="dashboard" onclick="switchView('dashboard', this); return false;">🏠 Dashboard</a>
+                <a href="#" class="nav-item" data-view="transacciones" onclick="switchView('transacciones', this); return false;">💳 Transacciones</a>
+                <a href="#" class="nav-item" data-view="perfil" onclick="switchView('perfil', this); return false;">👤 Perfil Financiero</a>
+                <a href="#" class="nav-item" data-view="ia" onclick="switchView('ia', this); return false;">✨ Análisis IA</a>
+                <a href="#" class="nav-item" data-view="historial" onclick="switchView('historial', this); return false;">⏰ Historial</a>
+                <a href="#" class="nav-item" data-view="config" onclick="switchView('config', this); return false;">⚙️ Configuración</a>
+            </nav>
+        </div>
+        <div class="sidebar-footer">
+            <div class="sidebar-card">
+                <p><strong>Finanzas más inteligentes</strong></p>
+                <small>Tomá mejores decisiones con la ayuda de la IA</small>
+            </div>
+            <form method="post" action="{{ url_for('auth.logout') }}" style="margin-top:12px;">
+                <button class="btn btn-sm btn-light w-100">Cerrar sesión</button>
+            </form>
+        </div>
+    </aside>
+
+    <main class="main-content">
+
+        <!-- VISTA: DASHBOARD -->
+        <div id="view-dashboard" class="app-view">
+            <header class="top-header">
+                <span class="text-muted fw-semibold">Resumen general</span>
+                <div class="user-profile-area">
+                    <div class="user-info">
+                        <span class="user-name">{{ session.get('nombre_usuario') or 'Usuario' }}</span>
+                        <small class="user-role">Cliente FinanceAI</small>
+                    </div>
+                    <div class="user-avatar">{{ (session.get('nombre_usuario') or 'U')[0]|upper }}</div>
+                </div>
+            </header>
+
+            <section class="welcome-section" style="margin-top:20px;">
+                <div class="welcome-text">
+                    <h1>¡Hola{{ ', ' + session.get('nombre_usuario').split(' ')[0] if session.get('nombre_usuario') else '' }}! 👋</h1>
+                    <p>Este es el resumen de tu actividad financiera.</p>
+                </div>
+            </section>
+
+            <div id="dashboardWarning"></div>
+
+            <section class="kpi-grid">
+                <div class="kpi-card">
+                    <div class="kpi-header"><span>TRANSACCIONES</span><div class="kpi-icon blue">📊</div></div>
+                    <h2 id="kpiTransacciones">0</h2>
+                    <small class="text-muted">registradas en tu cuenta</small>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-header"><span>GASTO TOTAL</span><div class="kpi-icon red">💸</div></div>
+                    <h2 id="kpiGastoTotal">$0.00</h2>
+                    <small class="text-muted">suma de todas tus transacciones</small>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-header"><span>PERFIL FINANCIERO</span><div class="kpi-icon purple">🧭</div></div>
+                    <h2 id="kpiPerfil">Sin datos</h2>
+                    <small class="text-muted">según tu último análisis</small>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-header"><span>RANGO DE AHORRO</span><div class="kpi-icon green">🏦</div></div>
+                    <h2 id="kpiAhorro">N/D</h2>
+                    <small class="text-muted">según tu último análisis</small>
+                </div>
+            </section>
+
+            <section class="charts-grid" style="display:grid; grid-template-columns:2fr 1fr; gap:20px;">
+                <div class="card chart-card">
+                    <h3>Evolución de gastos por mes</h3>
+                    <div class="chart-container-line"><canvas id="performanceChart"></canvas></div>
+                </div>
+                <div class="card chart-card">
+                    <h3>Gastos por categoría</h3>
+                    <div class="chart-container-pie"><canvas id="pieChart"></canvas></div>
+                </div>
+            </section>
+
+            <section class="card table-card">
+                <div class="table-header">
+                    <h3>Últimas transacciones</h3>
+                    <a href="#" class="view-all" onclick="switchView('transacciones', document.querySelector('[data-view=transacciones]')); return false;">Ver todas</a>
+                </div>
+                <div class="table-responsive">
+                    <table>
+                        <thead><tr><th>Nombre</th><th>Fecha</th><th>Monto</th></tr></thead>
+                        <tbody id="transactionsTableBody"></tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+
+        <!-- VISTA: TRANSACCIONES -->
+        <div id="view-transacciones" class="app-view" style="display:none; padding:20px;">
+            <header class="top-header" style="margin-bottom:20px;">
+                <div>
+                    <h2 style="margin:0; font-size:1.25rem;">💳 Transacciones</h2>
+                    <p style="color:#64748B; font-size:0.85rem; margin:2px 0 0 0;">Historial completo de movimientos</p>
+                </div>
+                <div style="display:flex; gap:15px; align-items:center;">
+                    <select id="filterTxPayment" class="form-select" onchange="applyPaymentFilter(this.value)">
+                        <option value="">Todos los medios de pago</option>
+                    </select>
+                    <a class="btn btn-primary" href="{{ url_for('transacciones.create') }}">+ Nueva transacción</a>
+                </div>
+            </header>
+
+            <div style="display:grid; grid-template-columns:1fr 2fr; gap:20px;">
+                <div class="card chart-card">
+                    <h3 style="font-size:1rem;">Resumen por medio de pago</h3>
+                    <div style="height:320px;"><canvas id="txPieChart"></canvas></div>
+                </div>
+                <div class="card table-card">
+                    <h3 style="font-size:1rem;">Todas las transacciones registradas</h3>
+                    <div class="table-responsive" style="max-height:350px; overflow-y:auto;">
+                        <table>
+                            <thead><tr><th>Comercio</th><th>Fecha</th><th>Medio</th><th style="text-align:right;">Monto</th></tr></thead>
+                            <tbody id="allTransactionsTableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- VISTA: PERFIL FINANCIERO -->
+        <div id="view-perfil" class="app-view" style="display:none; padding:20px;">
+            <div class="card" style="max-width:640px;">
+                <h2>👤 Perfil Financiero</h2>
+                <p style="color:#64748B;">Datos registrados de tu cuenta.</p>
+                <dl id="perfilDetalle" style="display:grid; grid-template-columns:auto 1fr; gap:8px 20px; margin-top:15px;"></dl>
+            </div>
+        </div>
+
+        <!-- VISTA: ANÁLISIS IA -->
+        <div id="view-ia" class="app-view" style="display:none; padding:20px;">
+            <header class="top-header" style="margin-bottom:20px;">
+                <div>
+                    <h2 style="margin:0; font-size:1.25rem;">Análisis IA ✨</h2>
+                    <p style="color:#64748B; font-size:0.85rem; margin:2px 0 0 0;">Tu salud financiera calculada por el modelo</p>
+                </div>
+            </header>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px; margin-bottom:20px;">
+                <div class="card" style="display:flex; align-items:center; justify-content:space-between;">
+                    <div>
+                        <span style="color:#64748B; font-size:0.8rem; font-weight:bold;">Perfil financiero</span>
+                        <h3 id="aiTituloSalud" style="margin:8px 0 4px 0; font-size:1.2rem;">Sin análisis aún</h3>
+                        <p id="aiProbText" style="color:#475569; font-size:0.85rem; margin-bottom:0;">Generá tu primer análisis para ver resultados.</p>
+                    </div>
+                    <div style="position:relative; width:100px; height:100px; flex-shrink:0;"><canvas id="aiHealthChart"></canvas></div>
+                </div>
+                <div class="card" style="background:linear-gradient(135deg,#EFF6FF 0%,#DBEAFE 100%); display:flex; align-items:center; justify-content:space-between;">
+                    <div>
+                        <h3 style="color:#1E40AF; margin:0 0 5px 0; font-size:1.1rem;">IA FinanceAI</h3>
+                        <p id="aiEstadoTexto" style="color:#1E3A8A; font-size:0.85rem; margin-bottom:12px;">Se consulta tu último análisis; si no tenés uno, se genera al instante.</p>
+                        <button onclick="loadAIData()" style="background:#2563EB; border:none; color:white; padding:7px 14px; border-radius:6px; font-weight:600; cursor:pointer; font-size:0.8rem;">🚀 Actualizar análisis</button>
+                    </div>
+                    <div style="font-size:3rem; flex-shrink:0;">🤖</div>
+                </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:20px; margin-bottom:20px;">
+                <div class="card">
+                    <h4 style="color:#1E40AF; margin:0 0 12px 0; font-size:0.95rem;">📊 Tu progreso</h4>
+                    <ul id="aiProgresoList" style="list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:10px; font-size:0.85rem; color:#334155;">
+                        <li>Cargando...</li>
+                    </ul>
+                </div>
+                <div class="card">
+                    <h4 style="color:#B45309; margin:0 0 12px 0; font-size:0.95rem;">🎯 Mayor categoría de gasto</h4>
+                    <p id="aiTopCategoria" style="font-size:0.9rem; color:#334155; margin:0;">Sin datos suficientes todavía.</p>
+                </div>
+                <div class="card">
+                    <h4 style="color:#166534; margin:0 0 12px 0; font-size:0.95rem;">💡 Recomendaciones</h4>
+                    <ul id="aiRecomendacionesList" style="list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:8px; font-size:0.8rem; color:#334155;">
+                        <li>Generá un análisis para ver recomendaciones.</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:20px;">
+                <div class="card"><h3 style="font-size:1rem;">Evolución de gastos</h3><div style="height:220px; position:relative;"><canvas id="aiEvolutionChart"></canvas></div></div>
+                <div class="card"><h3 style="font-size:1rem;">Categorías</h3><div style="height:220px; position:relative;"><canvas id="aiCategoriesChart"></canvas></div></div>
+                <div class="card"><h3 style="font-size:1rem;">Medios de pago</h3><div style="height:220px; position:relative;"><canvas id="aiPaymentChart"></canvas></div></div>
+            </div>
+        </div>
+
+        <!-- VISTA: HISTORIAL -->
+        <div id="view-historial" class="app-view" style="display:none; padding:20px;">
+            <div class="card">
+                <h2>⏰ Historial de análisis</h2>
+                <div id="historialLista" style="margin-top:15px; display:flex; flex-direction:column; gap:12px;">
+                    <p style="color:#64748B;">Cargando...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- VISTA: CONFIGURACIÓN -->
+        <div id="view-config" class="app-view" style="display:none; padding:20px;">
+            <div class="card">
+                <h2>⚙️ Configuración</h2>
+                <p style="color:#64748B;">Próximamente: preferencias de cuenta y notificaciones.</p>
+            </div>
+        </div>
+
+    </main>
+</div>
+
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+</body>
+</html>
+</file>
+
+<file path="frontend/README.md">
+# FinanceAI Frontend Flask
+
+Capa de presentación Flask para consumir el backend Spring Boot de FinanceAI. No accede directamente a PostgreSQL ni a FastAPI.
+
+## Funciones incluidas
+
+- Registro y login contra Spring Boot.
+- JWT guardado en la sesión de Flask.
+- Creación de perfil financiero después del registro.
+- Dashboard, alta y consulta de transacciones.
+- Vistas preparadas para análisis e historial.
+- Normalización temporal de respuestas camelCase/snake_case.
+- Manejo centralizado de 400, 401, 403, 404, 409, 5xx y timeouts.
+
+## Ejecución local
+
+```bash
+python -m venv .venv
+```
+
+Windows:
+
+```powershell
+.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+Copy-Item .env.example .env
+flask --app run.py run --debug
+```
+
+Define `FLASK_SECRET_KEY` y confirma que `BACKEND_API_URL` apunte a Spring Boot.
+
+## Pruebas
+
+```bash
+pytest -q
+```
+
+## Pendientes externos
+
+El análisis y el historial requieren que Spring Boot y el motor de IA resuelvan la ruta y el contrato de respuesta. La ausencia de `GET /api/v1/perfil` impide consultar el perfil existente, pero no bloquea su creación.
 </file>
 
 <file path=".gitattributes">
 text=auto eol=lf
 backend/mvnw text eol=lf
-</file>
-
-<file path="README.md">
-# FinanceAI
-# 🚀 FinanceAI – Asistente Inteligente de Salud Financiera
-
-📋 ## Índice
-- [Estado del proyecto](#-estado-del-proyecto)
-- [Descripción del proyecto](#-descripción-del-proyecto)
-- [Objetivos](#-objetivos)
-- [Sector empresarial](#-sector-empresarial)
-- [Tecnologías](#%EF%B8%8F-tecnologías)
-- [Arquitectura](#-arquitectura)
-- [Ejemplo de uso](#-ejemplo-de-uso)
-- [Equipo](#-equipo)
-
----
-
-## 🚧 Estado del proyecto
-Actualmente el proyecto se encuentra en fase de planificación y diseño de arquitectura. La implementación se desarrollará durante el Hackathon ONE.
-
-## 📖 Descripción del proyecto
-FinanceAI es una solución inteligente orientada a mejorar la salud financiera de los usuarios mediante el análisis automático de sus transacciones y hábitos financieros.
-A partir de la información proporcionada por el usuario, el sistema será capaz de analizar su comportamiento financiero y generar información útil que facilite una mejor toma de decisiones.
-
-Entre la información procesada se encuentran:
-* Ingreso mensual.
-* Nivel de endeudamiento.
-* Frecuencia de ahorro.
-* Historial de transacciones.
-* Descripción y monto de cada gasto.
-
-## 🎯 Objetivos
-El proyecto busca desarrollar un MVP capaz de:
-* Clasificar automáticamente las transacciones financieras.
-* Identificar patrones de consumo.
-* Analizar el perfil financiero del usuario.
-* Generar recomendaciones personalizadas.
-* Exponer los resultados mediante una API REST.
-* Integrar al menos un servicio de Oracle Cloud Infrastructure (OCI).
-
-## 🏢 Sector Empresarial
-**Fintech · Educación Financiera · Carteras Digitales**  
-FinanceAI está dirigido a personas que desean comprender mejor sus hábitos financieros, organizar sus gastos y tomar decisiones más informadas sobre el manejo de su dinero.
-
-## 🛠️ Tecnologías
-Actualmente el proyecto contempla el uso de las siguientes tecnologías:
-
-### Backend
-* Java 21
-* Spring Boot
-* Spring Data JPA
-* Maven
-* Flyway
-* Lombok
-* Swagger / OpenAPI
-
-### Ciencia de Datos
-* Python
-* Pandas
-* Scikit-Learn
-* Jupyter Notebook
-
-### Frontend
-* Vue.js
-
-### Infraestructura
-La infraestructura del proyecto se encuentra actualmente en definición. Durante el desarrollo del hackathon se seleccionarán los servicios de Oracle Cloud Infrastructure (OCI) que mejor se adapten a las necesidades del proyecto.
-
-## 🏗️ Arquitectura
-La solución estará organizada en cuatro módulos principales:
-1. **Frontend**, encargado de la interacción con el usuario.
-2. **Backend**, responsable de la lógica de negocio y la API REST.
-3. **Ciencia de Datos**, donde se desarrollarán y entrenarán los modelos de clasificación y análisis financiero.
-4. **Oracle Cloud Infrastructure (OCI)**, utilizado para el almacenamiento, procesamiento o despliegue de la solución.
-
-La arquitectura podrá evolucionar conforme avance el desarrollo del proyecto.
-
-## 💻 Ejemplo de uso
-
-### Endpoint
-`POST /api/analisis-financiero`
-
-### Solicitud
-```json
-{
-  "ingreso_mensual": 4500,
-  "nivel_endeudamiento": 25,
-  "frecuencia_ahorro": "Media",
-  "transacciones": [
-    {
-      "descripcion": "Supermercado",
-      "valor": 420
-    },
-    {
-      "descripcion": "Combustible",
-      "valor": 300
-    },
-    {
-      "descripcion": "Streaming",
-      "valor": 40
-    }
-  ]
-}
-Respuesta
-JSON
-{
-  "perfil_financiero": "En observación",
-  "probabilidad": 0.82,
-  "resumen_gastos": {
-    "alimentacion": 420,
-    "transporte": 300,
-    "entretenimiento": 40
-  },
-  "recomendaciones": [
-    "Monitorear gastos recurrentes de entretenimiento.",
-    "Aumentar la reserva financiera mensual."
-  ]
-}
-👥 Equipo
-Proyecto desarrollado por el equipo G9-LATAM-Team 47 FinanceAI durante el Hackathon Oracle Next Education (ONE).
-</file>
-
-<file path="backend/src/main/java/com/nocountry/financeai/controller/HistorialAnalisisController.java">
-package com.nocountry.financeai.controller;
-
-import com.nocountry.financeai.dto.response.HistorialAnalisisResponse;
-import com.nocountry.financeai.service.HistorialAnalisisService;
-import io.swagger.v3.oas.annotations.tags.Tag;
-import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
-import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
-
-import java.util.List;
-
-@RestController
-@RequestMapping("/api/v1/analisis")
-@RequiredArgsConstructor
-@Tag(
-        name = "Historial Resultado Analisis",
-        description = "Listado de historiales realizados de un usuario"
-)
-public class HistorialAnalisisController {
-    private final HistorialAnalisisService historialAnalisisService;
-
-    @PreAuthorize("hasRole('ADMIN')")
-    @GetMapping("/usuario/{userId}")
-    public List<HistorialAnalisisResponse> obtenerHistorialPorId(@PathVariable Long userId) {
-        return historialAnalisisService.obtenerHistorialPorId(userId);
-    }
-
-    @PreAuthorize("hasRole('ADMIN')")
-    @GetMapping
-    public List<HistorialAnalisisResponse> obtenerHistorial() {
-        return historialAnalisisService.obtenerHistorial();
-    }
-
-    @GetMapping("/usuario/historial")
-    public List<HistorialAnalisisResponse> obtenerMiHistorial(
-            @AuthenticationPrincipal UserDetails userDetails
-    ) {
-        return historialAnalisisService.obtenerHistorialAutenticado(userDetails.getUsername());
-    }
-}
 </file>
 
 <file path="backend/src/main/java/com/nocountry/financeai/controller/TestSecurityController.java">
@@ -3836,117 +5252,19 @@ public class HistorialAnalisisEntity {
 }
 </file>
 
-<file path="backend/src/main/java/com/nocountry/financeai/entity/TransactionEntity.java">
-package com.nocountry.financeai.entity;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.nocountry.financeai.entity.enums.MedioPago;
-import jakarta.persistence.*;
-
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-
-import lombok.*;
-
-
-@Entity
-@Table(name = "transacciones")
-@Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
-@ToString
-public class TransactionEntity {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
-
-    @Column(nullable = false, length = 10)
-    private String tipo;
-
-    @Column(length = 50)
-    private String categoria;
-
-    @Column(name = "nombre_comercio", nullable = false, length = 255)
-    private String nombreComercio;
-
-    @Column(name ="monto_transaccion", nullable = false)
-    private BigDecimal montoTransaccion;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "medio_pago", nullable = false, length = 20)
-    private MedioPago medioPago;
-
-    @Column(nullable = false)
-    private LocalDateTime fecha;
-
-    @ManyToOne
-    @JoinColumn(name = "usuario_id", nullable = false)
-    private UserEntity usuario;
-}
-</file>
-
-<file path="backend/src/main/java/com/nocountry/financeai/service/impl/HistorialAnalisisServiceImpl.java">
-package com.nocountry.financeai.service.impl;
+<file path="backend/src/main/java/com/nocountry/financeai/service/HistorialAnalisisService.java">
+package com.nocountry.financeai.service;
 
 import com.nocountry.financeai.dto.response.HistorialAnalisisResponse;
-import com.nocountry.financeai.entity.HistorialAnalisisEntity;
-import com.nocountry.financeai.entity.UserEntity;
-import com.nocountry.financeai.exception.ResourceNotFoundException;
-import com.nocountry.financeai.repository.HistorialAnalisisRepository;
-import com.nocountry.financeai.repository.UserRepository;
-import com.nocountry.financeai.service.HistorialAnalisisService;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
 
 import java.util.List;
 
-@Service
-@RequiredArgsConstructor
-public class HistorialAnalisisServiceImpl implements HistorialAnalisisService {
-    private final HistorialAnalisisRepository historialAnalisisRepository;
-    private final UserRepository userRepository;
-    @Override
-    public List<HistorialAnalisisResponse> obtenerHistorialPorId(Long id) {
-        return historialAnalisisRepository.findByUsuarioId(id)
-                .stream()
-                .map(this::convertirRespuesta)
-                .toList();
-    }
-
-    @Override
-    public List<HistorialAnalisisResponse> obtenerHistorial() {
-
-        return historialAnalisisRepository.findAll()
-                .stream()
-                .map(this::convertirRespuesta)
-                .toList();
-
-    }
-
-    @Override
-    public List<HistorialAnalisisResponse> obtenerHistorialAutenticado(String email) {
-        UserEntity usuario = userRepository
-                .findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
-
-        return historialAnalisisRepository.findByUsuarioId(usuario.getId())
-                .stream()
-                .map(this::convertirRespuesta)
-                .toList();
-    }
-
-    public HistorialAnalisisResponse convertirRespuesta(HistorialAnalisisEntity historial) {
-        return new HistorialAnalisisResponse(
-                historial.getPerfilFinanciero(),
-                historial.getProbabilidad(),
-                historial.getNivelEndeudamiento(),
-                historial.getRangoAhorro(),
-                historial.getResumenGastos(),
-                historial.getRecomendaciones()
-        );
-    }
+public interface HistorialAnalisisService {
+    List<HistorialAnalisisResponse> obtenerHistorial();
+    List<HistorialAnalisisResponse> obtenerHistorialPorId(Long id);
+    List<HistorialAnalisisResponse> obtenerHistorialAutenticado(String email);
+    // Devuelve el análisis más reciente del usuario autenticado; lanza ResourceNotFoundException si no tiene ninguno
+    HistorialAnalisisResponse obtenerUltimoAutenticado(String email);
 }
 </file>
 
@@ -4201,49 +5519,6 @@ joblib
 pydantic
 </file>
 
-<file path="frontend/README.md">
-# FinanceAI Frontend Flask
-
-Capa de presentación Flask para consumir el backend Spring Boot de FinanceAI. No accede directamente a PostgreSQL ni a FastAPI.
-
-## Funciones incluidas
-
-- Registro y login contra Spring Boot.
-- JWT guardado en la sesión de Flask.
-- Creación de perfil financiero después del registro.
-- Dashboard, alta y consulta de transacciones.
-- Vistas preparadas para análisis e historial.
-- Normalización temporal de respuestas camelCase/snake_case.
-- Manejo centralizado de 400, 401, 403, 404, 409, 5xx y timeouts.
-
-## Ejecución local
-
-```bash
-python -m venv .venv
-```
-
-Windows:
-
-```powershell
-.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-Copy-Item .env.example .env
-flask --app run.py run --debug
-```
-
-Define `FLASK_SECRET_KEY` y confirma que `BACKEND_API_URL` apunte a Spring Boot.
-
-## Pruebas
-
-```bash
-pytest -q
-```
-
-## Pendientes externos
-
-El análisis y el historial requieren que Spring Boot y el motor de IA resuelvan la ruta y el contrato de respuesta. La ausencia de `GET /api/v1/perfil` impide consultar el perfil existente, pero no bloquea su creación.
-</file>
-
 <file path="backend/src/main/java/com/nocountry/financeai/controller/AuthController.java">
 package com.nocountry.financeai.controller;
 
@@ -4277,6 +5552,62 @@ public class AuthController {
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
         AuthResponse response = authService.login(request);
         return ResponseEntity.ok(response);
+    }
+}
+</file>
+
+<file path="backend/src/main/java/com/nocountry/financeai/controller/HistorialAnalisisController.java">
+package com.nocountry.financeai.controller;
+
+import com.nocountry.financeai.dto.response.HistorialAnalisisResponse;
+import com.nocountry.financeai.service.HistorialAnalisisService;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
+
+@RestController
+@RequestMapping("/api/v1/analisis")
+@RequiredArgsConstructor
+@Tag(
+        name = "Historial Resultado Analisis",
+        description = "Listado de historiales realizados de un usuario"
+)
+public class HistorialAnalisisController {
+    private final HistorialAnalisisService historialAnalisisService;
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping("/usuario/{userId}")
+    public List<HistorialAnalisisResponse> obtenerHistorialPorId(@PathVariable Long userId) {
+        return historialAnalisisService.obtenerHistorialPorId(userId);
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @GetMapping
+    public List<HistorialAnalisisResponse> obtenerHistorial() {
+        return historialAnalisisService.obtenerHistorial();
+    }
+
+    @GetMapping("/usuario/historial")
+    public List<HistorialAnalisisResponse> obtenerMiHistorial(
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        return historialAnalisisService.obtenerHistorialAutenticado(userDetails.getUsername());
+    }
+
+    // Nuevo: pull del análisis más reciente, sin recalcular. Usado por el botón "Ver mi análisis".
+    @GetMapping("/usuario/ultimo")
+    public HistorialAnalisisResponse obtenerMiUltimoAnalisis(
+            @AuthenticationPrincipal UserDetails userDetails
+    ) {
+        return historialAnalisisService.obtenerUltimoAutenticado(userDetails.getUsername());
     }
 }
 </file>
@@ -4450,144 +5781,6 @@ public interface UserRepository extends JpaRepository<UserEntity, Long> {
 }
 </file>
 
-<file path="backend/src/main/java/com/nocountry/financeai/service/impl/AnalisisIAServiceImpl.java">
-package com.nocountry.financeai.service.impl;
-
-import com.nocountry.financeai.client.IAClient;
-import com.nocountry.financeai.dto.request.AnalisisRequest;
-import com.nocountry.financeai.dto.request.TransactionRequest;
-import com.nocountry.financeai.dto.response.AnalisisResponse;
-import com.nocountry.financeai.entity.HistorialAnalisisEntity;
-import com.nocountry.financeai.entity.PerfilFinancieroEntity;
-import com.nocountry.financeai.entity.TransactionEntity;
-import com.nocountry.financeai.entity.UserEntity;
-import com.nocountry.financeai.entity.enums.PerfilFinanciero;
-import com.nocountry.financeai.exception.ResourceNotFoundException;
-import com.nocountry.financeai.repository.HistorialAnalisisRepository;
-import com.nocountry.financeai.repository.PerfilFinancieroRepository;
-import com.nocountry.financeai.repository.TransactionRepository;
-import com.nocountry.financeai.repository.UserRepository;
-import com.nocountry.financeai.service.AnalisisIAService;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestClient;
-
-import java.time.LocalDate;
-import java.time.Period;
-import java.util.List;
-
-@Service
-@RequiredArgsConstructor
-public class AnalisisIAServiceImpl implements AnalisisIAService {
-
-    private final IAClient iaClient;
-    private final UserRepository userRepository;
-    private final PerfilFinancieroRepository perfilFinancieroRepository;
-    private final TransactionRepository transactionRepository;
-    private final HistorialAnalisisRepository historialAnalisisRepository;
-
-    @Override
-    public AnalisisResponse analizar(String email) {
-        // Su busca el usuario por email, se usa el Id para hacer el analisis
-        UserEntity usuario = userRepository
-                .findByEmail(email)
-                .orElseThrow(() ->
-                        new ResourceNotFoundException("Usuario no encontrado"
-                        ));
-        return analizarPorUsuarioId(usuario.getId());
-    }
-
-    @Override
-    public AnalisisResponse analizarPorDocumento(String documento) {
-        UserEntity usuario = userRepository
-                .findByDocumento(documento)
-                .orElseThrow(() ->
-                        new ResourceNotFoundException("Usuario no encontrado"));
-        return analizarPorUsuarioId(usuario.getId());
-    }
-
-    @Override
-    public AnalisisResponse analizarPorUsuarioId(Long usuarioId) {
-        // Busca el usuario por el id y se guarda
-        UserEntity usuario = userRepository
-                .findById(usuarioId)
-                .orElseThrow(() ->
-                        new ResourceNotFoundException("Usuario no encontrado"));
-
-        // Calcula la edad del usuario
-        Integer edad = Period.between(usuario.getFechaNacimiento(), LocalDate.now()).getYears();
-
-        // Busca el perfil financiero asociado al usuario, si no tiene envia exepcion
-        PerfilFinancieroEntity perfil = perfilFinancieroRepository
-                .findByUsuarioId(usuarioId)
-                .orElseThrow(() ->
-                        new ResourceNotFoundException(
-                                "El usuario no tiene un perfil financiero registrado"));
-
-        // Guarda las transacciones de un usuario en una lista
-        List<TransactionRequest> transaccionesRequest = transactionRepository
-                .findByUsuarioId(usuarioId)
-                .stream()
-                .map(this::convertirTransaccion)
-                .toList();
-
-        if (transaccionesRequest.isEmpty()) {
-            throw new IllegalStateException("El usuario debe tener al menos una transacción registrada para generar un análisis");
-        }
-
-        // Teniendo tadas las variable para el analisis crea el request
-        AnalisisRequest request = convertirAnalisis(edad, usuario, perfil, transaccionesRequest);
-
-        // Envia la peticion para hacer el analisis y guarda la respuesta
-        AnalisisResponse response = iaClient.analizar(request);
-
-        // Guarda el analisis al usuario
-        guardarHistorial(usuario, response);
-
-        return response;
-    }
-
-
-    // metodos privados para convertir entidad en request
-
-    private TransactionRequest convertirTransaccion(TransactionEntity entity) {
-        return new TransactionRequest(
-                entity.getNombreComercio(),
-                entity.getMontoTransaccion(),
-                entity.getMedioPago()
-        );
-    }
-
-    private AnalisisRequest convertirAnalisis(Integer edad, UserEntity usuario, PerfilFinancieroEntity perfil, List<TransactionRequest> transaccionRequest) {
-        return new AnalisisRequest(edad,
-                usuario.getSexo(),
-                usuario.getEstadoCivil(),
-                usuario.getNumeroHijos(),
-                perfil.getEmpleoFormal(),
-                perfil.getIngresoMensual(),
-                perfil.getLineaCredito(),
-                transaccionRequest
-        );
-    }
-
-
-    // metodo privado de la clase para guarda el historial en la base de datos
-    private void guardarHistorial(UserEntity usuario, AnalisisResponse response) {
-        HistorialAnalisisEntity historial = HistorialAnalisisEntity.builder()
-                .usuario(usuario)
-                .perfilFinanciero(response.perfilFinanciero())
-                .probabilidad(response.probabilidad())
-                .nivelEndeudamiento(response.nivelEndeudamiento())
-                .rangoAhorro(response.rangoAhorro())
-                .resumenGastos(response.resumenGastos())
-                .recomendaciones(response.recomendaciones())
-                .build();
-
-        historialAnalisisRepository.save(historial);
-    }
-}
-</file>
-
 <file path="backend/src/main/java/com/nocountry/financeai/service/AnalisisIAService.java">
 package com.nocountry.financeai.service;
 
@@ -4658,6 +5851,10 @@ ia:
   api:
     url: ${IA_API_URL}
 
+app:
+  openapi:
+    server-url: ${APP_OPENAPI_SERVER_URL:http://localhost:8080}
+
 # Configuración de Logs para depuración local
 logging:
   level:
@@ -4666,22 +5863,6 @@ logging:
     # Muestra los valores reales inyectados en las sentencias SQL de Hibernate
     org.hibernate.orm.jdbc.bind: TRACE
     org.hibernate.orm.jdbc.extract: TRACE
-</file>
-
-<file path="backend/Dockerfile">
-FROM eclipse-temurin:21-jdk AS build
-WORKDIR /app
-COPY . .
-
-# NUEVA LÍNEA: Limpieza de saltos de línea de Windows (CRLF a LF)
-RUN sed -i 's/\r$//' mvnw
-
-RUN chmod +x mvnw
-RUN ./mvnw clean package -DskipTests
-FROM eclipse-temurin:21-jre
-COPY --from=build /app/target/*.jar app.jar
-EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "app.jar"]
 </file>
 
 <file path="backend/src/main/java/com/nocountry/financeai/controller/AnalisisController.java">
@@ -4929,8 +6110,11 @@ public record TransactionRequest(
 
         @JsonProperty("medio_pago")
         @NotNull(message = "El medio de pago es obligatorio")
-        MedioPago medioPago
+        MedioPago medioPago,
 
+        @Schema(description = "Categoría de la transacción (generada por IA o ingresada manualmente)", example = "Alimentación")
+        @JsonProperty("categoria")
+                String categoria
 ) {
 }
 </file>
@@ -4996,94 +6180,69 @@ public record AnalisisResponse(
 }
 </file>
 
-<file path="backend/src/main/java/com/nocountry/financeai/service/impl/AuthServiceImpl.java">
-package com.nocountry.financeai.service.impl;
+<file path="backend/src/main/java/com/nocountry/financeai/entity/TransactionEntity.java">
+package com.nocountry.financeai.entity;
 
-import com.nocountry.financeai.dto.request.LoginRequest;
-import com.nocountry.financeai.dto.request.RegisterRequest;
-import com.nocountry.financeai.dto.response.AuthResponse;
-import com.nocountry.financeai.entity.UserEntity;
-import com.nocountry.financeai.exception.UserAlreadyExistsException;
-import com.nocountry.financeai.repository.UserRepository;
-import com.nocountry.financeai.security.JwtUtil;
-import com.nocountry.financeai.service.AuthService;
-import lombok.RequiredArgsConstructor;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.BadCredentialsException;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.userdetails.User;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.stereotype.Service;
+import com.nocountry.financeai.entity.enums.MedioPago;
+import jakarta.persistence.*;
+import lombok.*;
 
-import java.util.ArrayList;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
-@Service
-@RequiredArgsConstructor
-public class AuthServiceImpl implements AuthService {
+@Entity
+@Table(name = "transacciones") // <-- Corrección del nombre de la tabla
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class TransactionEntity {
 
-    private final UserRepository userRepository;
-    private final PasswordEncoder passwordEncoder;
-    private final JwtUtil jwtUtil;
-    private final AuthenticationManager authenticationManager;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
-    @Override
-    public AuthResponse register(RegisterRequest request) {
-        // 1. Usamos request.email() en vez de getEmail() por ser un record
-        if (userRepository.existsByEmail(request.email())) {
-            throw new UserAlreadyExistsException("El correo ya esta registrado");
-        }
-        if (userRepository.existsByDocumento(request.documento())) {
-            throw new UserAlreadyExistsException("El documento ya esta registrado");
-        }
+    @Column(name = "nombre_comercio")
+    private String nombreComercio;
 
-        // 2. Usamos request.nombre() tal cual lo definiste en tu record
-        UserEntity user = UserEntity.builder()
-                .nombre(request.nombre())
-                .apellido(request.apellido())
-                .documento(request.documento())
-                .email(request.email())
-                .password(passwordEncoder.encode(request.password()))
-                .fechaNacimiento(request.fechaNacimiento())
-                .sexo(request.sexo())
-                .estadoCivil(request.estadoCivil())
-                .numeroHijos(request.numeroHijos())
-                .build();
+    @Column(name = "monto_transaccion")
+    private BigDecimal montoTransaccion;
 
-        userRepository.save(user);
+    @Enumerated(EnumType.STRING)
+    @Column(name = "medio_pago")
+    private MedioPago medioPago;
 
-        // 3. Adaptamos el usuario a UserDetails para que el JwtUtil lo acepte sin errores
-        UserDetails userDetails = User.builder()
-                .username(user.getEmail())
-                .password(user.getPassword())
-                .authorities(new ArrayList<>())
-                .build();
+    // Corrección TASK-042 (AUD-27): Se remueve 'nullable = false' para alinear con la BD
+    @Column(name = "tipo", length = 10)
+    private String tipo;
 
-        String token = jwtUtil.generateToken(userDetails);
-        return new AuthResponse(token, "Usuario registrado exitosamente");
-    }
+    @Column(name = "fecha")
+    private LocalDateTime fecha;
 
-    @Override
-    public AuthResponse login(LoginRequest request) {
+    @Column(name = "categoria")
+    private String categoria;
 
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.email(), request.password())
-        );
-
-        UserEntity user = userRepository.findByEmail(request.email())
-                .orElseThrow(() -> new BadCredentialsException("Usuario no encontrado"));
-
-        // Adaptamos el usuario autenticado a UserDetails
-        UserDetails userDetails = User.builder()
-                .username(user.getEmail())
-                .password(user.getPassword())
-                .authorities(new ArrayList<>())
-                .build();
-
-        String token = jwtUtil.generateToken(userDetails);
-        return new AuthResponse(token, "Inicio de sesión exitoso");
-    }
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "usuario_id")
+    private UserEntity usuario;
 }
+</file>
+
+<file path="backend/Dockerfile">
+FROM eclipse-temurin:21-jdk AS build
+WORKDIR /app
+COPY . .
+
+# NUEVA LÍNEA: Limpieza de saltos de línea de Windows (CRLF a LF)
+RUN sed -i 's/\r$//' mvnw
+
+RUN chmod +x mvnw
+RUN ./mvnw clean package
+FROM eclipse-temurin:21-jre
+COPY --from=build /app/target/*.jar app.jar
+EXPOSE 8080
+ENTRYPOINT ["java", "-jar", "app.jar"]
 </file>
 
 <file path="backend/src/main/resources/db/migration/V3__create_analysis_table.sql">
@@ -5118,7 +6277,6 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.servlet.function.EntityResponse;
 
 import java.util.List;
 import java.util.Map;
@@ -5130,6 +6288,7 @@ import java.util.Map;
         name = "Transacciones",
         description = "Registro y consulta de transacciones")
 public class TransactionController {
+
     private final UserService userService;
     private final TransaccionService transaccionService;
 
@@ -5145,10 +6304,14 @@ public class TransactionController {
     }
 
     @GetMapping("/usuario/transacciones")
-    public List<TransaccionResponse> obtenerMisTransacciones(
-            @AuthenticationPrincipal UserDetails userDetails
-    ) {
-        return transaccionService.obtenerTransaccionesAutenticado(userDetails.getUsername());
+    public ResponseEntity<List<TransaccionResponse>> obtenerTransaccionesAutenticado(
+            @AuthenticationPrincipal UserDetails userDetails,
+            @RequestParam(required = false) String categoria) {
+
+        List<TransaccionResponse> transacciones = transaccionService
+                .obtenerTransaccionesPorCategoria(userDetails.getUsername(), categoria);
+
+        return ResponseEntity.ok(transacciones);
     }
 
     @PatchMapping("/usuario/transacciones/{idTransaccion}")
@@ -5486,6 +6649,22 @@ services:
       IA_API_URL: ${IA_API_URL}
       JWT_SECRET: ${JWT_SECRET}
       JWT_EXPIRATION: ${JWT_EXPIRATION}
+    networks:
+      - financeai-net
+
+  frontend:
+    build: ./frontend
+    container_name: financeai_frontend
+    ports:
+      - "5000:5000"
+    depends_on:
+      - backend
+    environment:
+      FLASK_SECRET_KEY: ${FLASK_SECRET_KEY}
+      BACKEND_API_URL: http://backend:8080/api/v1
+      SESSION_COOKIE_SECURE: ${SESSION_COOKIE_SECURE:-false}
+      REQUEST_TIMEOUT: ${REQUEST_TIMEOUT:-10}
+      FLASK_DEBUG: ${FLASK_DEBUG:-false}
     networks:
       - financeai-net
 

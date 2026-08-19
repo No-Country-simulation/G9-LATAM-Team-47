@@ -19,7 +19,7 @@ def create():
         payload = {
             "nombre_comercio": request.form.get("nombre_comercio", "").strip(),
             "monto_transaccion": request.form.get("monto_transaccion", ""),
-            "medio_pago": request.form.get("medio_pago", ""),
+            "medio_pago": request.form.get("medio_pago", "").lower(),
         }
         try:
             api.create_transaction(payload)
