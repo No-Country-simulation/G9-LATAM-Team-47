@@ -53,18 +53,18 @@ def _error_json(error, default_status=502):
 @login_required
 def index():
     transactions, warning = [], None
-        try:
-            transactions = api.list_transactions()
-        except AuthenticationError:
-            # Si el token es inválido o el usuario ya no existe,
-            # lanzamos el error para que el manejador global limpie la sesión.
-            raise
-        except FinanceAIError as error:
-            # Cualquier otro error (ej. base de datos lenta) se muestra como advertencia
-            warning = str(error)
+    try:
+        transactions = api.list_transactions()
+    except AuthenticationError:
+        # Si el token es inválido o el usuario ya no existe,
+        # lanzamos el error para que el manejador global limpie la sesión.
+        raise
+    except FinanceAIError as error:
+        # Cualquier otro error (ej. base de datos lenta) se muestra como advertencia
+        warning = str(error)
 
-        total = sum(float(item.get("monto_transaccion") or 0) for item in transactions)
-        return render_template("dashboard/index.html", transactions=transactions[:5], total=total, warning=warning)
+    total = sum(float(item.get("monto_transaccion") or 0) for item in transactions)
+    return render_template("dashboard/index.html", transactions=transactions[:5], total=total, warning=warning)
 
 
 @dashboard_bp.get("/data")
