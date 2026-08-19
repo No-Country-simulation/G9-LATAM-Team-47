@@ -8,4 +8,6 @@ public interface PerfilFinancieroService {
     PerfilFinancieroEntity obtenerPerfilPorUsuarioId(Long usuarioId);
 
     PerfilFinancieroResponse crearPerfil(String email, PerfilFinancieroRequest request);
+
+    PerfilFinancieroResponse obtenerPerfilPorEmail(String email);
 }

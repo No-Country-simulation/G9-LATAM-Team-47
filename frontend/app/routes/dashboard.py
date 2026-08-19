@@ -165,3 +165,12 @@ def historial_data():
     except FinanceAIError as error:
         return _error_json(error)
     return jsonify({"items": items})
+
+@dashboard_bp.route('/perfil-financiero-data')
+@login_required
+def perfil_financiero_data():
+    try:
+        data = api.get_financial_profile()
+        return jsonify(data)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500

@@ -48,4 +48,19 @@ public class PerfilFinancieroServiceImpl implements PerfilFinancieroService {
                 perfilGuardado.getLineaCredito()
         );
     }
+    @Override
+    public PerfilFinancieroResponse obtenerPerfilPorEmail(String email) {
+        UserEntity usuario = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("Usuario no encontrado"));
+
+        PerfilFinancieroEntity perfil = perfilFinancieroRepository.findByUsuarioId(usuario.getId())
+                .orElseThrow(() -> new ResourceNotFoundException("Perfil financiero no registrado"));
+
+        return new PerfilFinancieroResponse(
+                perfil.getEmpleoFormal(),
+                perfil.getIngresoMensual(),
+                perfil.getLineaCredito()
+                // Añade otros campos si tu DTO los requiere
+        );
+    }
 }

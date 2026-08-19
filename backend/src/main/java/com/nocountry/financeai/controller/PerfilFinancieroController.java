@@ -6,12 +6,10 @@ import com.nocountry.financeai.service.PerfilFinancieroService;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/v1/perfil")
@@ -31,5 +29,9 @@ public class PerfilFinancieroController {
         return perfilFinancieroService.crearPerfil(userDetails.getUsername(), request);
 
     }
-
+    @GetMapping
+    public ResponseEntity<PerfilFinancieroResponse> obtenerMiPerfilFinanciero(
+            @AuthenticationPrincipal UserDetails userDetails) {
+        return ResponseEntity.ok(perfilFinancieroService.obtenerPerfilPorEmail(userDetails.getUsername()));
+    }
 }

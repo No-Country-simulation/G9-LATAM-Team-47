@@ -91,6 +91,10 @@ class FinanceAIAPI:
         data = self.request("GET", "/analisis/usuario/historial")
         return [normalize_analysis(x) for x in (data or [])]
 
+    def get_financial_profile(self):
+            """Consume GET /api/v1/perfil para obtener datos financieros reales"""
+            return self._request('GET', '/perfil')
+
     def get_latest_analysis(self):
             return normalize_analysis(self.request("GET", "/analisis/usuario/ultimo"))
 

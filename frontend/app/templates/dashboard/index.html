@@ -15,7 +15,8 @@
             <nav class="nav-menu">
                 <a href="#" class="nav-item active" data-view="dashboard" onclick="switchView('dashboard', this); return false;">🏠 Dashboard</a>
                 <a href="#" class="nav-item" data-view="transacciones" onclick="switchView('transacciones', this); return false;">💳 Transacciones</a>
-                <a href="#" class="nav-item" data-view="perfil" onclick="switchView('perfil', this); return false;">👤 Perfil Financiero</a>
+                <a href="#" class="nav-item" data-view="perfil" onclick="switchView('perfil', this); return false;">👤 Mis Datos</a>
+                <a href="#" class="nav-item" data-view="perfil-financiero" onclick="switchView('perfil-financiero', this); return false;">💼 Perfil Financiero</a>
                 <a href="#" class="nav-item" data-view="ia" onclick="switchView('ia', this); return false;">✨ Análisis IA</a>
                 <a href="#" class="nav-item" data-view="historial" onclick="switchView('historial', this); return false;">⏰ Historial</a>
                 <a href="#" class="nav-item" data-view="config" onclick="switchView('config', this); return false;">⚙️ Configuración</a>
@@ -34,7 +35,6 @@
 
     <main class="main-content">
 
-        <!-- VISTA: DASHBOARD -->
         <div id="view-dashboard" class="app-view">
             <header class="top-header">
                 <span class="text-muted fw-semibold">Resumen general</span>
@@ -104,7 +104,6 @@
             </section>
         </div>
 
-        <!-- VISTA: TRANSACCIONES -->
         <div id="view-transacciones" class="app-view" style="display:none; padding:20px;">
             <header class="top-header" style="margin-bottom:20px;">
                 <div>
@@ -136,16 +135,22 @@
             </div>
         </div>
 
-        <!-- VISTA: PERFIL FINANCIERO -->
         <div id="view-perfil" class="app-view" style="display:none; padding:20px;">
             <div class="card" style="max-width:640px;">
-                <h2>👤 Perfil Financiero</h2>
-                <p style="color:#64748B;">Datos registrados de tu cuenta.</p>
+                <h2>👤 Mis Datos</h2>
+                <p style="color:#64748B;">Datos personales registrados en tu cuenta.</p>
                 <dl id="perfilDetalle" style="display:grid; grid-template-columns:auto 1fr; gap:8px 20px; margin-top:15px;"></dl>
             </div>
         </div>
 
-        <!-- VISTA: ANÁLISIS IA -->
+        <div id="view-perfil-financiero" class="app-view" style="display:none; padding:20px;">
+            <div class="card" style="max-width:640px;">
+                <h2>💼 Perfil Financiero</h2>
+                <p style="color:#64748B;">Tus datos financieros y crediticios actuales.</p>
+                <dl id="perfilFinancieroDetalle" style="display:grid; grid-template-columns:auto 1fr; gap:8px 20px; margin-top:15px;"></dl>
+            </div>
+        </div>
+
         <div id="view-ia" class="app-view" style="display:none; padding:20px;">
             <header class="top-header" style="margin-bottom:20px;">
                 <div>
@@ -199,7 +204,6 @@
             </div>
         </div>
 
-        <!-- VISTA: HISTORIAL -->
         <div id="view-historial" class="app-view" style="display:none; padding:20px;">
             <div class="card">
                 <h2>⏰ Historial de análisis</h2>
@@ -209,7 +213,6 @@
             </div>
         </div>
 
-        <!-- VISTA: CONFIGURACIÓN -->
         <div id="view-config" class="app-view" style="display:none; padding:20px;">
             <div class="card">
                 <h2>⚙️ Configuración</h2>
