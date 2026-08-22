@@ -11,12 +11,14 @@ def create_app(config_object=Config):
         raise RuntimeError("FLASK_SECRET_KEY es obligatoria")
 
     from .routes.auth import auth_bp
+    from .routes.perfil import perfil_bp
     from .routes.dashboard import dashboard_bp
     from .routes.transacciones import transacciones_bp
     from .routes.analisis import analisis_bp
     from .routes.historial import historial_bp
 
     app.register_blueprint(auth_bp)
+    app.register_blueprint(perfil_bp)
     app.register_blueprint(dashboard_bp)
     app.register_blueprint(transacciones_bp)
     app.register_blueprint(analisis_bp)
