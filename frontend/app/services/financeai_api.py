@@ -88,14 +88,16 @@ class FinanceAIAPI:
         return normalize_analysis(self.request("POST", "/analisis/predict"))
 
     def list_history(self):
+        
         data = self.request("GET", "/analisis/usuario/historial")
         return [normalize_analysis(x) for x in (data or [])]
 
     def get_financial_profile(self):
             """Consume GET /api/v1/perfil para obtener datos financieros reales"""
-            return self._request('GET', '/perfil')
+            return self.request('GET', '/perfil')
 
     def get_latest_analysis(self):
+            
             return normalize_analysis(self.request("GET", "/analisis/usuario/ultimo"))
 
 def _pick(data, *keys, default=None):

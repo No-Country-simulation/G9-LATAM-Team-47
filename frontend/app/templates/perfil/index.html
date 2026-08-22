@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="app-view">
+    <header class="top-header">
+        <div>
+            <h1>Mi perfil</h1>
+            <p class="text-muted">Consulta tu información personal y financiera.</p>
+        </div>
+    </header>
+
+    <div class="row g-4">
+
+        <div class="col-lg-6">
+            <div class="card p-4 h-100">
+                <h3>👤 Información personal</h3>
+
+                <div class="mt-4">
+                    <p><strong>Nombre:</strong> {{ profile.nombre }} {{ profile.apellido }}</p>
+                    <p><strong>Documento:</strong> {{ profile.documento }}</p>
+                    <p><strong>Email:</strong> {{ profile.email }}</p>
+                    <p><strong>Fecha de nacimiento:</strong> {{ profile.fecha_nacimiento }}</p>
+                    <p><strong>Estado civil:</strong> {{ profile.estado_civil }}</p>
+                    <p><strong>Sexo:</strong> {{ profile.sexo }}</p>
+                    <p><strong>Número de hijos:</strong> {{ profile.numero_hijos }}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="card p-4 h-100">
+                <h3>💰 Perfil financiero</h3>
+
+                <div class="mt-4">
+                    <p>
+                        <strong>Empleo formal:</strong>
+                        {{ "Sí" if financial_profile.empleo_formal == 1 else "No" }}
+                    </p>
+
+                    <p>
+                        <strong>Ingreso mensual:</strong>
+                        ${{ "{:,.0f}".format(financial_profile.ingreso_mensual) }}
+                    </p>
+
+                    <p>
+                        <strong>Línea de crédito:</strong>
+                        ${{ "{:,.0f}".format(financial_profile.linea_credito) }}
+                    </p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock %}
