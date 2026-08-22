@@ -9,7 +9,7 @@ transacciones_bp = Blueprint("transacciones", __name__, url_prefix="/transaccion
 @transacciones_bp.get("/")
 @login_required
 def index():
-    return render_template("transacciones/lista.html", transactions=api.list_transactions())
+    return render_template("transacciones/index.html", transactions=api.list_transactions())
 
 
 @transacciones_bp.route("/nueva", methods=["GET", "POST"])

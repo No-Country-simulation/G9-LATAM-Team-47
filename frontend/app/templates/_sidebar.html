@@ -1,0 +1,47 @@
+<aside class="sidebar">
+    <div>
+        <div class="brand">
+            <span class="brand-icon">📈</span>
+            <h2>FinanceAI</h2>
+        </div>
+
+        <nav class="nav-menu">
+
+            <a href="{{ url_for('dashboard.index') }}" class="nav-item">
+                🏠 Dashboard
+            </a>
+
+            <a href="{{ url_for('transacciones.index') }}" class="nav-item">
+                💳 Transacciones
+            </a>
+
+            <a href="{% if request.endpoint == 'dashboard.index' %}#" class="nav-item"
+                onclick="switchView('ia', this); return false;" {% else %} href="{{ url_for('dashboard.index') }}"
+                class="nav-item" {% endif %}>
+                ✨ Análisis IA
+            </a>
+
+            <a href="{% if request.endpoint == 'dashboard.index' %}#" class="nav-item"
+                onclick="switchView('historial', this); return false;" {% else %}
+                href="{{ url_for('dashboard.index') }}" class="nav-item" {% endif %}>
+                ⏰ Historial
+            </a>
+
+            <a href="{% if request.endpoint == 'dashboard.index' %}#" class="nav-item"
+                onclick="switchView('config', this); return false;" {% else %} href="{{ url_for('dashboard.index') }}"
+                class="nav-item" {% endif %}>
+                ⚙️ Configuración
+            </a>
+
+        </nav>
+    </div>
+
+    <div class="sidebar-footer">
+        <div class="sidebar-card">
+            <p><strong>Finanzas más inteligentes</strong></p>
+            <small>Tomá mejores decisiones con la ayuda de la IA</small>
+        </div>
+
+        </form>
+    </div>
+</aside>
