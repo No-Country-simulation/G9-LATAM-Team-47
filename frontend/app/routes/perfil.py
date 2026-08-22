@@ -8,8 +8,8 @@ perfil_bp = Blueprint("perfil", __name__, url_prefix="/perfil")
 @login_required
 def index():
     
+    profile = api.get_my_profile()
     financial_profile = api.get_financial_profile()
-    profile = financial_profile
 
     return render_template(
         "perfil/index.html",
