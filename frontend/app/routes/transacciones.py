@@ -27,4 +27,4 @@ def create():
             return redirect(url_for("transacciones.index"))
         except FinanceAIError as error:
             flash(str(error), "danger")
-    return render_template("transacciones/formulario.html")
+    return redirect(url_for("transacciones.index"))

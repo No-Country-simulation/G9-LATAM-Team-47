@@ -41,7 +41,7 @@
                 <div class="card p-3">
                     <h3>Nueva transacción</h3>
 
-                    <form method="post">
+                    <form method="post" action="{{ url_for('transacciones.create') }}" >
 
                         <div class="mb-3">
                             <label class="form-label">Comercio</label>
