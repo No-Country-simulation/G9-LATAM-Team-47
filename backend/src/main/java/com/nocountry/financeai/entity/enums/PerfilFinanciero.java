@@ -10,8 +10,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 )
 public enum PerfilFinanciero {
     SALUDABLE,
-    EN_OBSERVACION,
-    RIESGO;
+    MODERADO,
+    RIESGOSO;
 
     @JsonCreator
     public static PerfilFinanciero forString(String value) {
@@ -19,7 +19,7 @@ public enum PerfilFinanciero {
     }
 
     @JsonValue
-    public String toValue(){
+    public String toValue() {
         return this.name().toLowerCase();
     }
 }
