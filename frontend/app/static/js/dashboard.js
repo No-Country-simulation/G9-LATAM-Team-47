@@ -1,6 +1,20 @@
 let lineChart, pieChart, txPieChart, aiHealthChart, aiEvolutionChart, aiCategoriesChart, aiPaymentChart;
 let ultimoPayload = null;
 
+const userProfileButton = document.getElementById('userProfileButton');
+const userProfileMenu = document.getElementById('userProfileMenu');
+
+if (userProfileButton && userProfileMenu) {
+    userProfileButton.addEventListener('click', function (event) {
+        event.stopPropagation();
+        userProfileMenu.classList.toggle('show');
+    });
+
+    document.addEventListener('click', function () {
+        userProfileMenu.classList.remove('show');
+    });
+}
+
 function switchView(viewName, element) {
     document.querySelectorAll('.app-view').forEach(el => el.style.display = 'none');
     const target = document.getElementById('view-' + viewName);
@@ -13,7 +27,7 @@ function switchView(viewName, element) {
     else if (viewName === 'perfil') loadPerfilData();
     else if (viewName === 'perfil-financiero') loadPerfilFinancieroData();
     else if (viewName === 'historial') loadHistorialData();
-    else if (viewName === 'dashboard' || viewName === 'transacciones') loadDashboardData();
+    else if (viewName === 'dashboard') loadDashboardData();
 }
 
 function poblarSelectMedios(labels) {
@@ -66,10 +80,56 @@ function loadDashboardData() {
             const ctxPie = document.getElementById('pieChart');
             if (ctxPie) {
                 if (pieChart) pieChart.destroy();
+
+                const pieLabels = data.pie_chart.labels;
+                const pieValues = data.pie_chart.values;
+                const pieTotal = pieValues.reduce((sum, value) => sum + Number(value), 0);
+
                 pieChart = new Chart(ctxPie.getContext('2d'), {
                     type: 'doughnut',
-                    data: { labels: data.pie_chart.labels, datasets: [{ data: data.pie_chart.values, backgroundColor: ['#2563EB','#22C55E','#7C3AED','#F59E0B','#EF4444','#60A5FA'] }] },
-                    options: { responsive: true, maintainAspectRatio: false, cutout: '55%', plugins: { legend: { position: 'bottom' } } }
+                    data: {
+                        labels: pieLabels,
+                        datasets: [{
+                            data: pieValues,
+                            backgroundColor: ['#2563EB', '#22C55E', '#7C3AED', '#F59E0B', '#EF4444', '#60A5FA']
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        cutout: '55%',
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                align: 'start',
+                                labels: {
+                                    boxWidth: 12,
+                                    padding: 8,
+                                    textAlign: 'left',
+                                    generateLabels(chart) {
+                                        const dataset = chart.data.datasets[0];
+
+                                        return chart.data.labels.map((label, index) => {
+                                            const value = Number(dataset.data[index]);
+                                            const percentage = pieTotal
+                                                ? ((value / pieTotal) * 100).toFixed(1)
+                                                : '0.0';
+
+                                            return {
+                                                text: `${label} — ${percentage}% ($${value.toLocaleString('es-CO')})`,
+                                                fillStyle: dataset.backgroundColor[index],
+                                                strokeStyle: dataset.backgroundColor[index],
+                                                lineWidth: 0,
+                                                hidden: false,
+                                                index: index,
+                                                width: chart.width - 40
+                                            };
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                    }
                 });
             }
 
@@ -87,7 +147,7 @@ function loadDashboardData() {
                 if (txPieChart) txPieChart.destroy();
                 txPieChart = new Chart(ctxTxPie.getContext('2d'), {
                     type: 'doughnut',
-                    data: { labels: data.payment_chart.labels, datasets: [{ data: data.payment_chart.values, backgroundColor: ['#2563EB','#22C55E','#7C3AED','#F59E0B','#EF4444','#60A5FA'] }] },
+                    data: { labels: data.payment_chart.labels, datasets: [{ data: data.payment_chart.values, backgroundColor: ['#2563EB', '#22C55E', '#7C3AED', '#F59E0B', '#EF4444', '#60A5FA'] }] },
                     options: { responsive: true, maintainAspectRatio: false, cutout: '55%', plugins: { legend: { position: 'bottom' } } }
                 });
             }
@@ -165,7 +225,7 @@ function loadAIData() {
                 if (aiCategoriesChart) aiCategoriesChart.destroy();
                 aiCategoriesChart = new Chart(ctxCat.getContext('2d'), {
                     type: 'doughnut',
-                    data: { labels: data.pie_chart.labels, datasets: [{ data: data.pie_chart.values, backgroundColor: ['#2563EB','#7C3AED','#22C55E','#F97316','#EF4444'], borderWidth: 2, borderColor: '#fff' }] },
+                    data: { labels: data.pie_chart.labels, datasets: [{ data: data.pie_chart.values, backgroundColor: ['#2563EB', '#7C3AED', '#22C55E', '#F97316', '#EF4444'], borderWidth: 2, borderColor: '#fff' }] },
                     options: { responsive: true, maintainAspectRatio: false, cutout: '55%', plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } } }
                 });
             }
@@ -175,7 +235,7 @@ function loadAIData() {
                 if (aiPaymentChart) aiPaymentChart.destroy();
                 aiPaymentChart = new Chart(ctxPay.getContext('2d'), {
                     type: 'doughnut',
-                    data: { labels: data.payment_chart.labels, datasets: [{ data: data.payment_chart.values, backgroundColor: ['#2563EB','#22C55E','#F97316','#7C3AED','#EF4444'], borderWidth: 2, borderColor: '#fff' }] },
+                    data: { labels: data.payment_chart.labels, datasets: [{ data: data.payment_chart.values, backgroundColor: ['#2563EB', '#22C55E', '#F97316', '#7C3AED', '#EF4444'], borderWidth: 2, borderColor: '#fff' }] },
                     options: { responsive: true, maintainAspectRatio: false, cutout: '55%', plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } } }
                 });
             }
