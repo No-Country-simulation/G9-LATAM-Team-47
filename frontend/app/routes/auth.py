@@ -24,6 +24,8 @@ def login():
                 raise ValidationError("El backend no devolvió un token válido.", 502)
             session.clear()
             session["access_token"] = token
+            profile = api.get_my_profile()
+            session["nombre_usuario"] = profile.get("nombre", "Usuario")
             session.permanent = True
             flash((data or {}).get("message", "Sesión iniciada correctamente."), "success")
             target = request.args.get("next")
