@@ -15,21 +15,21 @@
                 💳 Transacciones
             </a>
 
-            <a href="{% if request.endpoint == 'dashboard.index' %}#" class="nav-item"
-                onclick="switchView('ia', this); return false;" {% else %} href="{{ url_for('dashboard.index') }}"
-                class="nav-item" {% endif %}>
+            <a href="{% if request.endpoint == 'dashboard.index' %}#{% else %}{{ url_for('dashboard.index', view='ia') }}{% endif %}"
+                class="nav-item" {% if request.endpoint=='dashboard.index' %}
+                onclick="switchView('ia', this); return false;" {% endif %}>
                 ✨ Análisis IA
             </a>
 
-            <a href="{% if request.endpoint == 'dashboard.index' %}#" class="nav-item"
-                onclick="switchView('historial', this); return false;" {% else %}
-                href="{{ url_for('dashboard.index') }}" class="nav-item" {% endif %}>
+            <a href="{% if request.endpoint == 'dashboard.index' %}#{% else %}{{ url_for('dashboard.index', view='historial') }}{% endif %}"
+                class="nav-item" {% if request.endpoint=='dashboard.index' %}
+                onclick="switchView('historial', this); return false;" {% endif %}>
                 ⏰ Historial
             </a>
 
-            <a href="{% if request.endpoint == 'dashboard.index' %}#" class="nav-item"
-                onclick="switchView('config', this); return false;" {% else %} href="{{ url_for('dashboard.index') }}"
-                class="nav-item" {% endif %}>
+            <a href="{% if request.endpoint == 'dashboard.index' %}#{% else %}{{ url_for('dashboard.index', view='config') }}{% endif %}"
+                class="nav-item" {% if request.endpoint=='dashboard.index' %}
+                onclick="switchView('config', this); return false;" {% endif %}>
                 ⚙️ Configuración
             </a>
 

@@ -30,6 +30,13 @@ function switchView(viewName, element) {
     else if (viewName === 'dashboard') loadDashboardData();
 }
 
+const params = new URLSearchParams(window.location.search);
+const initialView = params.get('view');
+
+if (initialView) {
+    switchView(initialView);
+}
+
 function poblarSelectMedios(labels) {
     const sel = document.getElementById('filterTxPayment');
     if (!sel) return;
