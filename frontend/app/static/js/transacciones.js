@@ -147,7 +147,6 @@ function loadTransactionsData() {
         });
 }
 
-
 function filtrarPorPeriodo(items, meses) {
     if (!meses || meses === 'all') return items;
 
@@ -155,9 +154,27 @@ function filtrarPorPeriodo(items, meses) {
     const inicio = new Date(ahora);
     inicio.setMonth(inicio.getMonth() - Number(meses));
 
+    const hoy = new Date(
+        ahora.getFullYear(),
+        ahora.getMonth(),
+        ahora.getDate()
+    );
+
+    const fechaInicio = new Date(
+        inicio.getFullYear(),
+        inicio.getMonth(),
+        inicio.getDate()
+    );
+
     return items.filter(tx => {
-        const fecha = new Date(tx.fecha);
-        return fecha >= inicio && fecha <= ahora;
+        const fechaTx = new Date(tx.fecha);
+        const fecha = new Date(
+            fechaTx.getFullYear(),
+            fechaTx.getMonth(),
+            fechaTx.getDate()
+        );
+
+        return fecha >= fechaInicio && fecha <= hoy;
     });
 }
 
