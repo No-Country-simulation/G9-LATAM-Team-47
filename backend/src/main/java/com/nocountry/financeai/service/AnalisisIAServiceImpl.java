@@ -19,9 +19,12 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.Period;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 
 @Service
 @RequiredArgsConstructor
@@ -82,6 +85,25 @@ public class AnalisisIAServiceImpl implements AnalisisIAService {
             throw new IllegalStateException("El usuario debe tener al menos una transacción registrada para generar un análisis");
         }
 
+        // Total de las transacciones actuales
+        BigDecimal totalActual = calcularTotalTransacciones(transaccionesRequest);
+
+        // Buscar último análisis
+        var ultimoHistorial = historialAnalisisRepository
+                .findFirstByUsuarioIdOrderByFechaAnalisisDesc(usuarioId);
+
+        if (ultimoHistorial.isPresent()) {
+            HistorialAnalisisEntity historial = ultimoHistorial.get();
+
+            BigDecimal totalAnalizado =
+                    calcularTotalResumen(historial.getResumenGastos());
+
+            // No cambió ninguna transacción relevante
+            if (totalActual.compareTo(totalAnalizado) == 0) {
+                return convertirAnalisisResponse(historial);
+            }
+        }
+
         // Teniendo tadas las variable para el analisis crea el request
         AnalisisRequest request = convertirAnalisis(edad, usuario, perfil, transaccionesRequest);
 
@@ -118,6 +140,19 @@ public class AnalisisIAServiceImpl implements AnalisisIAService {
         );
     }
 
+    private AnalisisResponse convertirAnalisisResponse(
+            HistorialAnalisisEntity historial) {
+
+        return new AnalisisResponse(
+                historial.getPerfilFinanciero(),
+                historial.getProbabilidad(),
+                historial.getNivelEndeudamiento(),
+                historial.getRangoAhorro(),
+                historial.getResumenGastos(),
+                historial.getRecomendaciones()
+        );
+    }
+
 
     // metodo privado de la clase para guarda el historial en la base de datos
     private void guardarHistorial(UserEntity usuario, AnalisisResponse response) {
@@ -132,5 +167,22 @@ public class AnalisisIAServiceImpl implements AnalisisIAService {
                 .build();
 
         historialAnalisisRepository.save(historial);
+    }
+
+    private BigDecimal calcularTotalTransacciones(List<TransactionRequest> transacciones) {
+        return transacciones.stream()
+                .map(TransactionRequest::montoTransaccion)
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private BigDecimal calcularTotalResumen(Map<String, BigDecimal> resumenGastos) {
+        if (resumenGastos == null || resumenGastos.isEmpty()) {
+            return BigDecimal.ZERO;
+        }
+
+        return resumenGastos.values().stream()
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 }
