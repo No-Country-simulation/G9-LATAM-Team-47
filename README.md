@@ -99,8 +99,11 @@ La arquitectura podrá evolucionar conforme avance el desarrollo del proyecto.
     }
   ]
 }
-Respuesta
-JSON
+```
+
+### Respuesta
+
+```JSON
 {
   "perfil_financiero": "En observación",
   "probabilidad": 0.82,
@@ -114,5 +117,7 @@ JSON
     "Aumentar la reserva financiera mensual."
   ]
 }
+```
+
 👥 Equipo
 Proyecto desarrollado por el equipo G9-LATAM-Team 47 FinanceAI durante el Hackathon Oracle Next Education (ONE).
