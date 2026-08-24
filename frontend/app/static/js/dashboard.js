@@ -107,12 +107,10 @@ function loadDashboardData() {
                         cutout: '55%',
                         plugins: {
                             legend: {
-                                position: 'bottom',
-                                align: 'start',
+                                position: 'right',
                                 labels: {
-                                    boxWidth: 12,
-                                    padding: 8,
-                                    textAlign: 'left',
+                                    boxWidth: 10,
+                                    font: { size: 10 },
                                     generateLabels(chart) {
                                         const dataset = chart.data.datasets[0];
 
@@ -230,24 +228,130 @@ function loadAIData() {
             const ctxCat = document.getElementById('aiCategoriesChart');
             if (ctxCat) {
                 if (aiCategoriesChart) aiCategoriesChart.destroy();
+
+                const catLabels = data.pie_chart.labels || [];
+                const catValues = (data.pie_chart.values || []).map(Number);
+                const catTotal = catValues.reduce((sum, value) => sum + value, 0);
+
                 aiCategoriesChart = new Chart(ctxCat.getContext('2d'), {
                     type: 'doughnut',
-                    data: { labels: data.pie_chart.labels, datasets: [{ data: data.pie_chart.values, backgroundColor: ['#2563EB', '#7C3AED', '#22C55E', '#F97316', '#EF4444'], borderWidth: 2, borderColor: '#fff' }] },
-                    options: { responsive: true, maintainAspectRatio: false, cutout: '55%', plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } } }
+                    data: {
+                        labels: catLabels,
+                        datasets: [{
+                            data: catValues,
+                            backgroundColor: [
+                                '#2563EB',
+                                '#7C3AED',
+                                '#22C55E',
+                                '#F97316',
+                                '#EF4444'
+                            ],
+                            borderWidth: 2,
+                            borderColor: '#fff'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        cutout: '55%',
+                        plugins: {
+                            legend: {
+                                position: 'right',
+                                labels: {
+                                    boxWidth: 10,
+                                    font: { size: 10 },
+
+                                    generateLabels(chart) {
+                                        const dataset = chart.data.datasets[0];
+
+                                        return chart.data.labels.map((label, index) => {
+                                            const value = Number(dataset.data[index]) || 0;
+
+                                            const percentage = catTotal
+                                                ? ((value / catTotal) * 100).toFixed(1)
+                                                : '0.0';
+
+                                            return {
+                                                text: `${label} — ${percentage}% ($${value.toLocaleString('es-CO')})`,
+                                                fillStyle: dataset.backgroundColor[index],
+                                                strokeStyle: dataset.backgroundColor[index],
+                                                lineWidth: 0,
+                                                hidden: false,
+                                                index: index
+                                            };
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                    }
                 });
             }
 
             const ctxPay = document.getElementById('aiPaymentChart');
             if (ctxPay) {
                 if (aiPaymentChart) aiPaymentChart.destroy();
+
+                const payLabels = data.payment_chart.labels || [];
+                const payValues = (data.payment_chart.values || []).map(Number);
+                const payTotal = payValues.reduce((sum, value) => sum + value, 0);
+
                 aiPaymentChart = new Chart(ctxPay.getContext('2d'), {
                     type: 'doughnut',
-                    data: { labels: data.payment_chart.labels, datasets: [{ data: data.payment_chart.values, backgroundColor: ['#2563EB', '#22C55E', '#F97316', '#7C3AED', '#EF4444'], borderWidth: 2, borderColor: '#fff' }] },
-                    options: { responsive: true, maintainAspectRatio: false, cutout: '55%', plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } } }
+                    data: {
+                        labels: payLabels,
+                        datasets: [{
+                            data: payValues,
+                            backgroundColor: [
+                                '#2563EB',
+                                '#22C55E',
+                                '#F97316',
+                                '#7C3AED',
+                                '#EF4444'
+                            ],
+                            borderWidth: 2,
+                            borderColor: '#fff'
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        cutout: '55%',
+                        plugins: {
+                            legend: {
+                                position: 'right',
+                                labels: {
+                                    boxWidth: 10,
+                                    font: { size: 10 },
+
+                                    generateLabels(chart) {
+                                        const dataset = chart.data.datasets[0];
+
+                                        return chart.data.labels.map((label, index) => {
+                                            const value = Number(dataset.data[index]) || 0;
+
+                                            const percentage = payTotal
+                                                ? ((value / payTotal) * 100).toFixed(1)
+                                                : '0.0';
+
+                                            return {
+                                                text: `${label} — ${percentage}% ($${value.toLocaleString('es-CO')})`,
+                                                fillStyle: dataset.backgroundColor[index],
+                                                strokeStyle: dataset.backgroundColor[index],
+                                                lineWidth: 0,
+                                                hidden: false,
+                                                index: index
+                                            };
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                    }
                 });
             }
         })
-        .catch(err => console.error('Error al cargar Análisis IA:', err));
+        .catch (err => console.error('Error al cargar Análisis IA:', err));
 }
 
 function loadPerfilData() {

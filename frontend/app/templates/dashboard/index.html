@@ -85,15 +85,25 @@
             </div>
         </section>
 
-        <section class="charts-grid" style="display:grid; grid-template-columns:2fr 1fr; gap:20px;">
-            <div class="card chart-card">
-                <h3>Evolución de gastos por mes</h3>
-                <div class="chart-container-line"><canvas id="performanceChart"></canvas></div>
+        <section class="row g-4 mb-4">
+            <div class="col-lg-8">
+                <div class="card chart-card h-100">
+                    <h3>Evolución de gastos por mes</h3>
+                    <div class="chart-container-line">
+                        <canvas id="performanceChart"></canvas>
+                    </div>
+                </div>
             </div>
-            <div class="card chart-card">
-                <h3>Gastos por categoría</h3>
-                <div class="chart-container-pie"><canvas id="pieChart"></canvas></div>
-                <div id="pieChartLegend" class="pie-chart-legend"></div>
+
+            <div class="col-lg-4">
+                <div class="card chart-card ">
+                    <h3>Gastos por categoría</h3>
+
+                    <div class="chart-container-pie">
+                        <canvas id="pieChart"></canvas>
+                    </div>
+
+                </div>
             </div>
         </section>
     </div>
@@ -194,15 +204,23 @@
     <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:20px;">
         <div class="card">
             <h3 style="font-size:1rem;">Evolución de gastos</h3>
-            <div style="height:220px; position:relative;"><canvas id="aiEvolutionChart"></canvas></div>
+            <div style="height:220px; position:relative;">
+                <canvas id="aiEvolutionChart"></canvas>
+            </div>
         </div>
+
         <div class="card">
             <h3 style="font-size:1rem;">Categorías</h3>
-            <div style="height:220px; position:relative;"><canvas id="aiCategoriesChart"></canvas></div>
+            <div style="height:220px; position:relative;">
+                <canvas id="aiCategoriesChart"></canvas>
+            </div>
         </div>
+
         <div class="card">
             <h3 style="font-size:1rem;">Medios de pago</h3>
-            <div style="height:220px; position:relative;"><canvas id="aiPaymentChart"></canvas></div>
+            <div style="height:220px; position:relative;">
+                <canvas id="aiPaymentChart"></canvas>
+            </div>
         </div>
     </div>
 </div>

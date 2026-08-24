@@ -40,11 +40,11 @@ function renderTransactionsChart(items) {
             plugins: {
                 legend: {
                     position: 'bottom',
-                    align: 'start',
-                    fullSize: true,
+                    align: 'center',
                     labels: {
-                        boxWidth: 12,
-                        padding: 8,
+                        boxWidth: 10,
+                        font: { size: 10 },
+                        textAlign: 'left',
                         generateLabels(chart) {
                             const labels = chart.data.labels;
                             const values = chart.data.datasets[0].data;

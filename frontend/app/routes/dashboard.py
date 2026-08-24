@@ -11,7 +11,6 @@ dashboard_bp = Blueprint("dashboard", __name__, url_prefix="/dashboard")
 
 _MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
 
-
 def _parse_fecha(value):
     if not value:
         return None
@@ -19,7 +18,6 @@ def _parse_fecha(value):
         return datetime.fromisoformat(str(value).replace("Z", ""))
     except ValueError:
         return None
-
 
 def _monthly_series(transactions):
     totals = defaultdict(float)
@@ -33,7 +31,6 @@ def _monthly_series(transactions):
     values = [round(totals[k], 2) for k in ordered_keys]
     return labels, values
 
-
 def _payment_series(transactions):
     totals = defaultdict(float)
     for tx in transactions:
@@ -43,11 +40,9 @@ def _payment_series(transactions):
     values = [round(totals[k], 2) for k in labels]
     return labels, values
 
-
 def _error_json(error, default_status=502):
     status = getattr(error, "status_code", None) or default_status
     return jsonify({"error": str(error)}), status
-
 
 @dashboard_bp.get("/")
 @login_required
@@ -65,7 +60,6 @@ def index():
 
     total = sum(float(item.get("monto_transaccion") or 0) for item in transactions)
     return render_template("dashboard/index.html", transactions=transactions[:5], total=total, warning=warning)
-
 
 @dashboard_bp.get("/data")
 @login_required
@@ -109,17 +103,11 @@ def data():
         "payment_methods": pay_labels,
     })
 
-
 @dashboard_bp.get("/analisis-data")
 @login_required
 def analisis_data():
     try:
-        analysis = api.get_latest_analysis()
-    except ResourceNotFoundError:
-        try:
-            analysis = api.request_analysis()
-        except FinanceAIError as error:
-            return jsonify({"existe": False, "mensaje": str(error)})
+        analysis = api.request_analysis()
     except FinanceAIError as error:
         return _error_json(error)
 
@@ -127,8 +115,10 @@ def analisis_data():
         transactions = api.list_transactions()
     except FinanceAIError:
         transactions = []
+
     line_labels, line_values = _monthly_series(transactions)
     pay_labels, pay_values = _payment_series(transactions)
+
     resumen_gastos = analysis.get("resumen_gastos") or {}
     top_categoria = max(resumen_gastos, key=resumen_gastos.get) if resumen_gastos else None
 
@@ -142,10 +132,15 @@ def analisis_data():
         "top_categoria": top_categoria,
         "top_categoria_monto": resumen_gastos.get(top_categoria) if top_categoria else None,
         "chart": {"labels": line_labels, "values": line_values},
-        "pie_chart": {"labels": list(resumen_gastos.keys()), "values": [float(v) for v in resumen_gastos.values()]},
-        "payment_chart": {"labels": pay_labels, "values": pay_values},
+        "pie_chart": {
+            "labels": list(resumen_gastos.keys()),
+            "values": [float(v) for v in resumen_gastos.values()]
+        },
+        "payment_chart": {
+            "labels": pay_labels,
+            "values": pay_values
+        },
     })
-
 
 @dashboard_bp.get("/perfil-data")
 @login_required
@@ -155,7 +150,6 @@ def perfil_data():
     except FinanceAIError as error:
         return _error_json(error)
     return jsonify(perfil)
-
 
 @dashboard_bp.get("/historial-data")
 @login_required
